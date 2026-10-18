@@ -123,7 +123,7 @@ Approved visual variations, still pending isolated official files:
 ## Splash and launcher
 
 - No definitive XENOWAVE launcher or splash asset may be generated before approval.
-- The launcher label is `XENOWAVE`; debug builds are labeled `XENOWAVE Debug`.
+- The launcher label is `XENOWAVE` in every build type, including debug and userdebug.
 - Splash treatment must preserve contrast, avoid flashing, and use only official artwork.
 - System bars retain legible icons and must follow the selected light/dark mode.
 
@@ -135,16 +135,16 @@ Approved visual variations, still pending isolated official files:
 
 ### Pending official destination
 
-- Old OuterTune URLs remain temporarily where no official XENOWAVE destination exists. They must not be presented as new XENOWAVE channels.
+- External repository paths that still contain the upstream project name may remain until the GitHub repository is renamed. They must not be presented as XENOWAVE-owned channels that do not exist yet.
 
 ### Technical compatibility references that remain
 
-- `com.dd3boh.outertune` application ID and namespace
-- Kotlin packages under `com.dd3boh.outertune`
+- Application ID `com.dd3boh.xenowave` (debug: `com.dd3boh.xenowave.debug`)
+- Kotlin packages under `com.dd3boh.xenowave`
 - Existing actions, preference keys, routes, database entities, persisted identifiers, backup identifiers, and technical component names
 - Historical attribution and licensing references
 
-Blind global replacement of `OuterTune` is forbidden.
+Blind global replacement of `OuterTune` remains forbidden for licenses, copyright headers, contributor attribution, external dependency names and historical references.
 
 ## New screen checklist
 

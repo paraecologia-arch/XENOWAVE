@@ -19,7 +19,7 @@ Source: https://github.com/FoedusProgramme/Gramophone
 Path: /app/src/main/java/org/akanework/gramophone/logic
 
 Notes: 
-- The lyrics parser has been modified to work with OuterTune (usually) where denoted
+- The lyrics parser has been modified to work with XENOWAVE (usually) where denoted
 
 
 ## TreeDocumentFile

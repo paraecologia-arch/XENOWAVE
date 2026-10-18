@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.XenoWave.Splash" parent="Theme.OuterTune">
+    <style name="Theme.XenoWave.Splash" parent="Theme.XenoWave">
         <item name="android:windowSplashScreenBackground">@color/xenowave_primary_text</item>
         <item name="android:windowSplashScreenIconBackgroundColor">@color/xenowave_primary_text</item>
         <item name="android:windowSplashScreenAnimatedIcon">@android:color/transparent</item>

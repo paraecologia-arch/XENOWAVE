@@ -31,7 +31,7 @@ The initial invocation without a configured JDK also failed in 0 s with `JAVA_HO
 - Dynamic wallpaper/artwork coloring disabled by default and retained as an optional user setting.
 - Visible app name and debug launcher label.
 - Careful visible string migration, preserving technical references and old URLs where required.
- - Fastlane store-description brand names, preserving old OuterTune URLs.
+- Fastlane store-description brand names.
 - Removal of the old OuterTune logo from the About and OOBE screens; only the approved text name is shown while assets are pending.
 - Approved typography and verbal-identity decisions registered; font embedding remains pending.
 
@@ -126,7 +126,7 @@ Static validation completed successfully:
 - `git diff --check` passed.
 - No Android `<string>` node still contains `OuterTune` in any letter case.
 - The Master Visual Reference retains its approved dimensions and SHA-256.
-- The application ID and namespace remain `com.dd3boh.outertune`.
+- The application ID and namespace were migrated to `com.dd3boh.xenowave` in the technical identity migration round (see below).
 - No diff exists in InnerTubeX/streaming, download, or database implementation paths.
 
 ### Continuation session validation (2026-09-17)
@@ -168,4 +168,20 @@ The Gradle failures did not identify `ffMetadataEx` or `taglib` as their cause. 
 - Download rules and download manager behavior.
 - Database schema and migrations.
 - Login, library, navigation, playback, and persistence behavior.
-- Application ID, namespace, packages, actions, routes, preference keys, and persisted identifiers.
+- Preference keys and persisted identifiers (database and DataStore names are brand-neutral).
+
+## Technical identity migration (2026-10-18)
+
+The application stopped being an OuterTune-branded build and became an independent XENOWAVE package.
+
+- Namespace and base application ID: `com.dd3boh.xenowave`; debug application ID: `com.dd3boh.xenowave.debug`.
+- Kotlin and Java sources moved from `com/dd3boh/outertune` to `com/dd3boh/xenowave` in `main` and `test` source sets.
+- Room schema directory renamed to `app/schemas/com.dd3boh.xenowave.db.InternalDatabase`; schema content and database version (20) unchanged.
+- Launcher shortcuts, intent actions, FileProvider authority, ProGuard rules and workflow artifacts now derive from the new package.
+- Compose theme function `OuterTuneTheme` renamed to `XenoWaveTheme`; XML style `Theme.OuterTune` renamed to `Theme.XenoWave`.
+- Debug launcher label is `XENOWAVE`; the automatic red debug overlay on the home screen was removed entirely.
+- Fork-specific string files renamed from `strings-ot.xml` to `strings-xenowave.xml` in every locale (resource names and translations unchanged).
+- Legacy helper classes with the `Ot` abbreviation were renamed (`XenoOffloadSupportProvider`, `XenoDownloadManager`, `XenoDownloadDirectoryManager`, `TreeDocumentFileXeno`, `LegacyStreamResolver`).
+- Workflow `Build XENOWAVE debug APK`, artifact `XENOWAVE-core-debug`.
+- Because the application ID changed, Android treats this build as a separate application: it installs side by side with the old package and does not inherit its private data. No cross-package migration is implemented.
+- Copyright headers, GPL licensing, upstream attribution, submodule URLs and historical references were intentionally preserved.

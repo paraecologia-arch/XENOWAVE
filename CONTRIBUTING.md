@@ -34,19 +34,19 @@ see https://github.com/OuterTune/ffMetadataEx/blob/main/README.md#building
 
 <br/><br/>
 
-# Contributing to OuterTune
+# Contributing to XENOWAVE
 
 ## Translations
 
-We use Weblate to translate OuterTune. For more details or to get started,
-visit [our Weblate page](https://hosted.weblate.org/projects/outertune/).
+Translations are inherited from the upstream OuterTune project, which uses Weblate. For more details or to get
+started, visit the [upstream Weblate page](https://hosted.weblate.org/projects/outertune/).
 Thank you for the libre tier!
 
 ### Important
 
 - Translators should submit strings through Weblate, however if there are changes that cannot be accomplished via
   Weblate, you may submit a pull request manually
-- Make sure new strings are in the right place, which is `strings-ot.xml` for OuterTune strings
+- Make sure new strings are in the right place, which is `strings-xenowave.xml` for XENOWAVE strings
 - If they are ported from upstream InnerTune (ex. when syncing upstream), they go into `strings.xml`
 
 ## Submitting a pull request
@@ -122,7 +122,7 @@ To make everyone's life easier, there are a set of guidelines that are to be fol
 |---------------|-------------------------------------------------------------------------------------------------|
 | `<file name>` | Changes for one single file, that to not fit into any other tags                                |
 | app           | General changes, or anything that does not fit any other tags. (For within the app module only) |
-| outertune     | General changes that span across multiple modules                                               |
+| xenowave      | General changes that span across multiple modules                                               |
 | fastlane      | Fastlane components                                                                             |
 | translations  | General changes to translation components                                                       |
 

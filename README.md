@@ -1,40 +1,35 @@
-# OuterTune
+# XENOWAVE
 
-<img src="./assets/outertune.webp" height="88" alt="XENOWAVE app icon">
+<img src="./assets/xenowave.webp" height="88" alt="XENOWAVE app icon">
 
 A Material 3 YouTube Music client & local music player for Android
 
-[![Latest release](https://img.shields.io/github/v/release/OuterTune/OuterTune?include_prereleases)](https://github.com/OuterTune/OuterTune/releases)
-[![License](https://img.shields.io/github/license/OuterTune/OuterTune)](https://www.gnu.org/licenses/gpl-3.0)
-[![Downloads](https://img.shields.io/github/downloads/OuterTune/OuterTune/total)](https://github.com/OuterTune/OuterTune/releases)
+[![Latest release](https://img.shields.io/github/v/release/paraecologia-arch/OuterTune?include_prereleases)](https://github.com/paraecologia-arch/OuterTune/releases)
+[![License](https://img.shields.io/github/license/paraecologia-arch/OuterTune)](https://www.gnu.org/licenses/gpl-3.0)
+[![Downloads](https://img.shields.io/github/downloads/paraecologia-arch/OuterTune/total)](https://github.com/paraecologia-arch/OuterTune/releases)
 
-
-<!-- use  "⠀⠀" for spacing -->
-[<img src="assets/badge_github.png" alt="Get it on GitHub" height="40">](https://github.com/OuterTune/OuterTune/releases/latest)⠀⠀
-[<img src="assets/IzzyOnDroidButtonGreyBorder.svg" alt="Get it on IzzyOnDroid" height="40">](https://apt.izzysoft.de/fdroid/index/apk/com.dd3boh.outertune)⠀⠀
-[<img src="assets/badge_fdroid.svg" alt="Get it on F-Droid" height="40">](https://f-droid.org/en/packages/com.dd3boh.outertune/)⠀⠀
-[<img src="assets/badge_obtainium.png" alt="Get it on Obtainium" height="40">](https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22com.dd3boh.outertune%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FDD3Boh%2FOuterTune%22%2C%22author%22%3A%22DD3Boh%22%2C%22name%22%3A%22OuterTune%22%2C%22preferredApkIndex%22%3A0%2C%22additionalSettings%22%3A%22%7B%5C%22includePrereleases%5C%22%3Afalse%2C%5C%22fallbackToOlderReleases%5C%22%3Atrue%2C%5C%22filterReleaseTitlesByRegEx%5C%22%3A%5C%22%5C%22%2C%5C%22filterReleaseNotesByRegEx%5C%22%3A%5C%22%5C%22%2C%5C%22verifyLatestTag%5C%22%3Afalse%2C%5C%22dontSortReleasesList%5C%22%3Afalse%2C%5C%22useLatestAssetDateAsReleaseDate%5C%22%3Afalse%2C%5C%22trackOnly%5C%22%3Afalse%2C%5C%22versionExtractionRegEx%5C%22%3A%5C%22%5C%22%2C%5C%22matchGroupToUse%5C%22%3A%5C%22%5C%22%2C%5C%22versionDetection%5C%22%3Atrue%2C%5C%22releaseDateAsVersion%5C%22%3Afalse%2C%5C%22useVersionCodeAsOSVersion%5C%22%3Afalse%2C%5C%22apkFilterRegEx%5C%22%3A%5C%22%5C%22%2C%5C%22invertAPKFilter%5C%22%3Afalse%2C%5C%22autoApkFilterByArch%5C%22%3Atrue%2C%5C%22appName%5C%22%3A%5C%22%5C%22%2C%5C%22shizukuPretendToBeGooglePlay%5C%22%3Afalse%2C%5C%22allowInsecure%5C%22%3Afalse%2C%5C%22exemptFromBackgroundUpdates%5C%22%3Afalse%2C%5C%22skipUpdateNotifications%5C%22%3Afalse%2C%5C%22about%5C%22%3A%5C%22A%20Material%203%20YouTube%20Music%20client%20%26%20local%20music%20player%20for%20Android%5C%22%7D%22%2C%22overrideSource%22%3A%22GitHub%22%7D)
-
+[<img src="assets/badge_github.png" alt="Get it on GitHub" height="40">](https://github.com/paraecologia-arch/OuterTune/releases/latest)
 
 > [!WARNING]
-> OuterTune is only available on the platforms listed here. This app is not listed on the Play Store or any other fake website that claim to be us. We recommend you to immediately delete any fake versions or clones for your safety.
-
+> XENOWAVE is only available through the GitHub repository linked above. This app is not listed on the Play Store or any
+> other website claiming to be us. We recommend you to immediately delete any fake versions or clones for your safety.
 
 ## Features
 
-OuterTune is a supercharged fork of [InnerTune](https://github.com/z-huang/InnerTune). This app is both a local media player, and a YouTube Music client.
+XENOWAVE is a fork of [InnerTune](https://github.com/z-huang/InnerTune), built on the [OuterTune](https://github.com/OuterTune/OuterTune)
+project. This app is both a local media player and a YouTube Music client.
 
 - YouTube Music client features
     - Song downloading (offline playback)
     - Seamless playback: no ADs & background playback
     - Account synchronization
-        - Full playlist sync from the app to the remote account is temporally unavailable 
+        - Full playlist sync from the app to the remote account is temporarily unavailable
 - Local audio file playback (ex. MP3, OGG, FLAC, etc.)
-    - Play local and Youtube Music songs at the same time
-    - Uses a custom tag extractor instead of MediaStore's broken metadata extractor! (e.g tags delimited with \\ now show up properly)
-- Sleek Material3 design
+    - Play local and YouTube Music songs at the same time
+    - Uses a custom tag extractor instead of MediaStore's broken metadata extractor! (e.g. tags delimited with \\ now show up properly)
+- Sleek Material 3 design
 - Multiple queues
-- Synchronized lyrics, and support for word by word/Karaoke lyrics formats (e.g LRC, TTML)
+- Synchronized lyrics, and support for word by word/Karaoke lyrics formats (e.g. LRC, TTML)
 - Audio normalization, tempo/pitch adjustment, and various other audio effects
 - Android Auto support
 - Support for Android 8 (Oreo) and higher
@@ -43,8 +38,8 @@ OuterTune is a supercharged fork of [InnerTune](https://github.com/z-huang/Inner
 > Android 8 (Oreo) and higher is supported. While the app may work on Android 7.x (Nougat), we do not officially support this version
 
 > [!NOTE]
-> Read our FAQ and guides on our [wiki](https://github.com/OuterTune/OuterTune/wiki/Frequently-Asked-Questions-(FAQ))
-
+> The inherited documentation of the upstream OuterTune project is available in the
+> [upstream wiki](https://github.com/OuterTune/OuterTune/wiki/Frequently-Asked-Questions-(FAQ)).
 
 ## Screenshots
 
@@ -58,51 +53,40 @@ OuterTune is a supercharged fork of [InnerTune](https://github.com/z-huang/Inner
 
 > [!WARNING]
 >
->If you're in a region where YouTube Music is not supported, you won't be able to use this app
-***unless*** you have a proxy or VPN to connect to a YTM supported region.
+> If you're in a region where YouTube Music is not supported, you won't be able to use this app
+> ***unless*** you have a proxy or VPN to connect to a YTM supported region.
 
 ## Building & Contributing
 
 We are looking for contributors, translators, and maintainers! If you would like to help out, or just wish to build the
 app yourself, please see the [building and contribution notes](./CONTRIBUTING.md).
 
-### Submitting Translations
+### Translations
 
-We use Weblate to translate OuterTune. For more details or to submit translations, visit our [Weblate page](https://hosted.weblate.org/projects/outertune/).
-
-<a href="https://hosted.weblate.org/projects/outertune/">
-<img src="https://hosted.weblate.org/widget/outertune/multi-auto.svg" alt="Translation status" />
-</a>
-
-Thank you very much for helping to make OuterTune accessible to many people worldwide.
-
-## Support us
-
-If you like OuterTune, you're welcome to send a donation. Donations will support the development,
-including bug fixes and new features.
-
-<a href="https://paypal.me/DD3Boh"><img src="./assets/paypal.png" alt="PayPal" height="60" ></a>
+XENOWAVE inherits the translations maintained by the upstream OuterTune project on
+[Weblate](https://hosted.weblate.org/projects/outertune/). Thank you very much to everyone who made this app accessible
+to many people worldwide.
 
 ## Help & Support
-Contact us through GitHub
-- For bug reports and/or feature requests, please create a [GitHub issue](https://github.com/OuterTune/OuterTune/issues).
-- If you have want help with the app, check out the [Discussion Forum](https://github.com/OuterTune/OuterTune/discussions).
 
-For all other inquiries NOT related to the app, you can contact us at outertune@protonmail.com. **This is NOT a support email!**
+Contact us through GitHub
+- For bug reports and/or feature requests, please create a [GitHub issue](https://github.com/paraecologia-arch/OuterTune/issues).
+- If you need help with the app, check out the [Discussion Forum](https://github.com/paraecologia-arch/OuterTune/discussions).
 
 ## Attribution
 
-Thanks to all our contributors! Check them out [here](https://github.com/OuterTune/OuterTune/graphs/contributors)
+XENOWAVE is derived from [OuterTune](https://github.com/OuterTune/OuterTune) and from
+[z-huang/InnerTune](https://github.com/z-huang/InnerTune), which provided an awesome base for this fork; none of this
+would have been possible without them.
 
-[z-huang/InnerTune](https://github.com/z-huang/InnerTune) for providing an awesome base for this fork, none of this
-would have been possible without it.
+Thanks to all previous contributors! Check them out [here](https://github.com/OuterTune/OuterTune/graphs/contributors)
 
 [Musicolet](https://play.google.com/store/apps/details?id=in.krosbits.musicolet) for inspiration of a local music player
 experience done right.
 
 [Gramophone](https://github.com/FoedusProgramme/Gramophone) for emotional support, and a legendary lyrics parser
 
-[![Star History Chart](https://api.star-history.com/svg?repos=outertune/outertune&type=Date)](https://www.star-history.com/#outertune/outertune&Date)
+This project is licensed under the GNU General Public License v3.0. See [LICENSE](./LICENSE).
 
 ## Disclaimer
 

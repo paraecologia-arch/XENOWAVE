@@ -82,10 +82,10 @@
     #public static int e(...);
 }
 
-## OuterTune required modules
+## XENOWAVE required modules
 -keep class wah.mikooomich.ffMetadataEx.** { *; }
 -keep class com.kyant.taglib.** { *; }
 
 ## Quality of life for logs
--keepclasseswithmembernames class com.dd3boh.outertune.playback.**
--keepclasseswithmembernames class com.dd3boh.outertune.utils.scanners.**
+-keepclasseswithmembernames class com.dd3boh.xenowave.playback.**
+-keepclasseswithmembernames class com.dd3boh.xenowave.utils.scanners.**

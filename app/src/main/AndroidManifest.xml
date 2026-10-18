@@ -30,7 +30,7 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/xeno_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.OuterTune"
+        android:theme="@style/Theme.XenoWave"
         android:enableOnBackInvokedCallback="true"
         tools:targetApi="tiramisu">
         <uses-library

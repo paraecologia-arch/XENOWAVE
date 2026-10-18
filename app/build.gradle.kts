@@ -26,11 +26,11 @@ val unitTestJavaLauncher = javaToolchains.launcherFor {
 }
 
 android {
-    namespace = "com.dd3boh.outertune"
+    namespace = "com.dd3boh.xenowave"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.dd3boh.outertune"
+        applicationId = "com.dd3boh.xenowave"
         minSdk = 24
         targetSdk = 36
         versionCode = 71
@@ -40,7 +40,7 @@ android {
 
     signingConfigs {
         if (!keystoreProperties.isEmpty) {
-            create("ot_release") {
+            create("xenowave_release") {
                 storeFile = file(keystoreProperties["storeFile"] as String)
                 (keystoreProperties["keyAlias"] as? String)?.let {
                     keyAlias = it
@@ -53,7 +53,7 @@ android {
                 }
             }
         } else {
-            create("ot_release") { }
+            create("xenowave_release") { }
         }
     }
 
@@ -63,7 +63,7 @@ android {
             isShrinkResources = true
             isCrunchPngs = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName("ot_release")
+            signingConfig = signingConfigs.getByName("xenowave_release")
         }
         debug {
             applicationIdSuffix = ".debug"
