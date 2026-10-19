@@ -4,11 +4,11 @@
 
 A Material 3 YouTube Music client & local music player for Android
 
-[![Latest release](https://img.shields.io/github/v/release/paraecologia-arch/OuterTune?include_prereleases)](https://github.com/paraecologia-arch/OuterTune/releases)
-[![License](https://img.shields.io/github/license/paraecologia-arch/OuterTune)](https://www.gnu.org/licenses/gpl-3.0)
-[![Downloads](https://img.shields.io/github/downloads/paraecologia-arch/OuterTune/total)](https://github.com/paraecologia-arch/OuterTune/releases)
+[![Latest release](https://img.shields.io/github/v/release/paraecologia-arch/XENOWAVE?include_prereleases)](https://github.com/paraecologia-arch/XENOWAVE/releases)
+[![License](https://img.shields.io/github/license/paraecologia-arch/XENOWAVE)](https://www.gnu.org/licenses/gpl-3.0)
+[![Downloads](https://img.shields.io/github/downloads/paraecologia-arch/XENOWAVE/total)](https://github.com/paraecologia-arch/XENOWAVE/releases)
 
-[<img src="assets/badge_github.png" alt="Get it on GitHub" height="40">](https://github.com/paraecologia-arch/OuterTune/releases/latest)
+[<img src="assets/badge_github.png" alt="Get it on GitHub" height="40">](https://github.com/paraecologia-arch/XENOWAVE/releases/latest)
 
 > [!WARNING]
 > XENOWAVE is only available through the GitHub repository linked above. This app is not listed on the Play Store or any
@@ -43,13 +43,9 @@ project. This app is both a local media player and a YouTube Music client.
 
 ## Screenshots
 
-<img src="./assets/main-interface.jpg" alt="Main player interface" />
-<br/><br/>
-<img src="./assets/player.jpg" alt="Player interface"/>
-<br/><br/>
-<img src="./assets/ytm-sync.jpg" alt="Sync with YouTube Music"/>
-
-[Full image gallery](./assets/gallery)
+> [!NOTE]
+> Screenshots of the current XENOWAVE interface will be published after validation on a physical
+> device. Captures of the inherited interface were removed from the active documentation.
 
 > [!WARNING]
 >
@@ -70,8 +66,8 @@ to many people worldwide.
 ## Help & Support
 
 Contact us through GitHub
-- For bug reports and/or feature requests, please create a [GitHub issue](https://github.com/paraecologia-arch/OuterTune/issues).
-- If you need help with the app, check out the [Discussion Forum](https://github.com/paraecologia-arch/OuterTune/discussions).
+- For bug reports and/or feature requests, please create a [GitHub issue](https://github.com/paraecologia-arch/XENOWAVE/issues).
+- If you need help with the app, check out the [Discussion Forum](https://github.com/paraecologia-arch/XENOWAVE/discussions).
 
 ## Attribution
 

@@ -767,14 +767,14 @@ fun SetupWizard(
                                 IconLabelButton(
                                     text = "GitHub",
                                     icon = com.dd3boh.xenowave.ui.icons.XenoSystemIcons.Code,
-                                    onClick = { uriHandler.openUri("https://github.com/paraecologia-arch/OuterTune") },
+                                    onClick = { uriHandler.openUri("https://github.com/paraecologia-arch/XENOWAVE") },
                                     modifier = Modifier.padding(horizontal = 8.dp)
                                 )
 
                                 IconLabelButton(
                                     text = "Wiki",
                                     icon = com.dd3boh.xenowave.ui.icons.XenoSystemIcons.OutlinedInfo,
-                                    onClick = { uriHandler.openUri("https://github.com/paraecologia-arch/OuterTune/wiki") },
+                                    onClick = { uriHandler.openUri("https://github.com/paraecologia-arch/XENOWAVE/wiki") },
                                     modifier = Modifier.padding(horizontal = 8.dp)
                                 )
                             }

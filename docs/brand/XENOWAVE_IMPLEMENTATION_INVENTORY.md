@@ -40,7 +40,7 @@ The initial invocation without a configured JDK also failed in 0 s with `JAVA_HO
 - Isolated official files for the approved dark-background, light-background, monochrome, and isolated-symbol variations. Until those isolated files are released, the launcher foreground, monochrome layer and splash icon are scaled derivatives of the approved `xenowave_launcher_master.png` (see below).
 - Orbitron and Inter font integration.
 - Faithful vector conversion of the functional icons whose current master still aliases a different approved glyph (list under "Held" below).
-- Fastlane store screenshots.
+- Fastlane store screenshots and README captures of the current XENOWAVE interface. Previous captures of the inherited interface were removed from the active documentation and store listing and must be recaptured on a physical device.
 
 ## Icon system, launcher and splash (continuation session)
 
@@ -184,4 +184,5 @@ The application stopped being an OuterTune-branded build and became an independe
 - Legacy helper classes with the `Ot` abbreviation were renamed (`XenoOffloadSupportProvider`, `XenoDownloadManager`, `XenoDownloadDirectoryManager`, `TreeDocumentFileXeno`, `LegacyStreamResolver`).
 - Workflow `Build XENOWAVE debug APK`, artifact `XENOWAVE-core-debug`.
 - Because the application ID changed, Android treats this build as a separate application: it installs side by side with the old package and does not inherit its private data. No cross-package migration is implemented.
+- The GitHub repository was renamed from the previous OuterTune repository name to XENOWAVE; every project-controlled link now points to the new repository.
 - Copyright headers, GPL licensing, upstream attribution, submodule URLs and historical references were intentionally preserved.

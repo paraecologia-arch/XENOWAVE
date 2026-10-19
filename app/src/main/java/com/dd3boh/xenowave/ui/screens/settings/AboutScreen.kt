@@ -168,14 +168,14 @@ fun AboutScreen(
             IconLabelButton(
                 text = "GitHub",
                 painter = painterResource(R.drawable.github),
-                onClick = { uriHandler.openUri("https://github.com/paraecologia-arch/OuterTune") },
+                onClick = { uriHandler.openUri("https://github.com/paraecologia-arch/XENOWAVE") },
                 modifier = Modifier.padding(horizontal = 8.dp)
             )
 
             IconLabelButton(
                 text = stringResource(R.string.wiki),
                 icon = com.dd3boh.xenowave.ui.icons.XenoSystemIcons.OutlinedInfo,
-                onClick = { uriHandler.openUri("https://github.com/paraecologia-arch/OuterTune/wiki") },
+                onClick = { uriHandler.openUri("https://github.com/paraecologia-arch/XENOWAVE/wiki") },
                 modifier = Modifier.padding(horizontal = 8.dp)
             )
         }
@@ -209,13 +209,13 @@ fun AboutScreen(
                 PreferenceEntry(
                     title = { Text(stringResource(R.string.help_bug_report_action)) },
                     onClick = {
-                        uriHandler.openUri("https://github.com/paraecologia-arch/OuterTune/issues")
+                        uriHandler.openUri("https://github.com/paraecologia-arch/XENOWAVE/issues")
                     }
                 )
                 PreferenceEntry(
                     title = { Text(stringResource(R.string.help_support_forum)) },
                     onClick = {
-                        uriHandler.openUri("https://github.com/paraecologia-arch/OuterTune/discussions")
+                        uriHandler.openUri("https://github.com/paraecologia-arch/XENOWAVE/discussions")
                     }
                 )
             }
