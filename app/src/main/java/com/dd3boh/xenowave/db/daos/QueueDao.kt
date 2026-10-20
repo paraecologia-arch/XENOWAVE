@@ -128,7 +128,7 @@ interface QueueDao {
     }
 
     @Transaction
-    fun normalizePersistedQueue(queue: MultiQueueObject, queueSongs: List<QueueSong>): MultiQueueObject {
+    suspend fun normalizePersistedQueue(queue: MultiQueueObject, queueSongs: List<QueueSong>): MultiQueueObject {
         if (!normalizeQueueState(queue)) return queue
 
         update(
