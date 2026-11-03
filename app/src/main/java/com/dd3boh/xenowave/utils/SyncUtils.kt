@@ -28,7 +28,6 @@ import com.dd3boh.xenowave.constants.decodeSyncString
 import com.dd3boh.xenowave.db.MusicDatabase
 import com.dd3boh.xenowave.db.entities.ArtistEntity
 import com.dd3boh.xenowave.db.entities.PlaylistEntity
-import com.dd3boh.xenowave.db.entities.PlaylistSongMap
 import com.dd3boh.xenowave.db.entities.SongEntity
 import com.dd3boh.xenowave.extensions.isAutoSyncEnabled
 import com.dd3boh.xenowave.extensions.isInternetConnected
@@ -67,6 +66,7 @@ import javax.inject.Singleton
 class SyncUtils @Inject constructor(
     val database: MusicDatabase,
     private val downloadUtil: DownloadUtil,
+    private val playlistSyncManager: PlaylistSyncManager,
     @ApplicationContext private val context: Context
 ) {
     private val TAG = "SyncUtils"
@@ -97,9 +97,9 @@ class SyncUtils @Inject constructor(
         }
         Log.d(TAG, "Starting auto sync job")
         if (!bypassCd) {
-            val lastSync = context.dataStore.get(LastFullSyncKey, LocalDateTime.now().toEpochSecond(ZoneOffset.UTC))
+            val lastSync = context.dataStore.get(LastFullSyncKey, 0L)
             val currentTime = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
-            if (currentTime - lastSync > SYNC_CD) {
+            if (currentTime - lastSync < SYNC_CD) {
                 Log.d(TAG, "Aborting auto sync. ${(currentTime - lastSync) * 60000} minutes until eligible")
                 return
             }
@@ -120,9 +120,9 @@ class SyncUtils @Inject constructor(
     }
 
     private fun checkPartialSyncEligibility(key: Preferences.Key<Long>): Boolean {
-        val lastSync = context.dataStore.get(key, LocalDateTime.now().toEpochSecond(ZoneOffset.UTC))
+        val lastSync = context.dataStore.get(key, 0L)
         val currentTime = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
-        if (currentTime - lastSync > SYNC_CD) {
+        if (currentTime - lastSync < SYNC_CD) {
             Log.d(TAG, "Aborting auto sync. ${(currentTime - lastSync) * 60000} minutes until eligible")
             return false
         }
@@ -452,7 +452,7 @@ class SyncUtils @Inject constructor(
      */
     suspend fun syncRemotePlaylists(bypass: Boolean = false) {
         // REQUIRED: internet, no ongoing sync, and category enabled
-        if (!_isSyncingRemotePlaylists.value && (!checkEnabled(SyncContent.PLAYLISTS) || !context.isInternetConnected())) {
+        if (_isSyncingRemotePlaylists.value || !checkEnabled(SyncContent.PLAYLISTS) || !context.isInternetConnected()) {
             if (_isSyncingRemotePlaylists.value)
                 Log.i(TAG, "Library songs synchronization already in progress")
             return
@@ -467,10 +467,12 @@ class SyncUtils @Inject constructor(
 
         try {
             Log.i(TAG, "Library playlist synchronization started")
+            playlistSyncManager.flush()
+            val playlistOwner = context.playlistSyncOwner()
 
             // Get remote and local playlists
             YouTube.library("FEmusic_liked_playlists").completed().onSuccess { page ->
-                if (!context.isInternetConnected()) {
+                if (!context.isInternetConnected() || context.playlistSyncOwner() != playlistOwner) {
                     return
                 }
 
@@ -485,6 +487,7 @@ class SyncUtils @Inject constructor(
                     val playlistsToRemove = localPlaylists
                         .filterNot { it.playlist.isLocal }
                         .filterNot { it.playlist.browseId == null }
+                        .filterNot { database.playlistSyncState(it.id)?.pending == true }
                         .filterNot { localPlaylist -> remotePlaylists.any { it.id == localPlaylist.playlist.browseId } }
 
                     // Remove playlists from the database
@@ -501,6 +504,7 @@ class SyncUtils @Inject constructor(
                 runBlocking {
                     remotePlaylists.forEach { remotePlaylist ->
                         launch(Dispatchers.IO) {
+                            if (context.playlistSyncOwner() != playlistOwner || database.isPlaylistPendingDeletion(remotePlaylist.id) > 0) return@launch
                             // forcefully assign isEditable. These playlists are at mercy of YouTube
                             var localPlaylist =
                                 localPlaylists.find { remotePlaylist.id == it.playlist.browseId }?.playlist
@@ -521,6 +525,7 @@ class SyncUtils @Inject constructor(
                                 )
                                 database.insert(localPlaylist)
                             } else {
+                                if (localPlaylist.isLocal) return@launch
                                 database.update(localPlaylist, remotePlaylist)
                             }
 
@@ -528,7 +533,7 @@ class SyncUtils @Inject constructor(
                             val updatedPlaylist =
                                 database.playlistByBrowseId(remotePlaylist.id).firstOrNull()
                             updatedPlaylist?.let {
-                                val playlistSongMaps = database.songMapsToPlaylist(updatedPlaylist.id)
+                                val playlistSongMaps = database.playlistSongMaps(updatedPlaylist.id)
                                 if (updatedPlaylist.playlist.isEditable || playlistSongMaps.isNotEmpty()) {
                                     syncPlaylist(remotePlaylist.id, updatedPlaylist.id)
                                 }
@@ -546,38 +551,8 @@ class SyncUtils @Inject constructor(
         }
     }
 
-    suspend fun syncPlaylist(browseId: String, playlistId: String) {
-        // this is also used for individual playlist sync
-        if (!context.isInternetConnected()) {
-            return
-        }
-        YouTube.playlist(browseId).completed().onSuccess { playlistPage ->
-            if (!context.isInternetConnected()) {
-                return
-            }
-
-            runBlocking {
-                launch(Dispatchers.IO) {
-                    database.transaction {
-                        clearPlaylist(playlistId)
-                        val songEntities = playlistPage.songs
-                            .map(SongItem::toMediaMetadata)
-                            .onEach { insert(it) }
-
-                        val playlistSongMaps = songEntities.mapIndexed { position, song ->
-                            PlaylistSongMap(
-                                songId = song.id,
-                                playlistId = playlistId,
-                                position = position,
-                                setVideoId = song.setVideoId
-                            )
-                        }
-                        playlistSongMaps.forEach { insert(it) }
-                    }
-                }
-            }
-        }
-    }
+    suspend fun syncPlaylist(browseId: String?, playlistId: String, retryUnconfirmed: Boolean = false): Boolean =
+        playlistSyncManager.syncPlaylist(playlistId, retryUnconfirmed)
 
     suspend fun syncRecentActivity(bypass: Boolean = false) {
         // REQUIRED: internet, no ongoing sync, and category enabled
