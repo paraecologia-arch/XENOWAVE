@@ -20,6 +20,8 @@ jobs:
           cache: gradle
       - name: Accept SDK licenses
         run: yes | /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --licenses
+      - name: Install native build tools
+        run: /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager "cmake;3.31.6" "build-tools;35.0.0"
       - name: Build release and validate
         run: ./gradlew assembleCoreRelease lintCoreRelease testCoreDebugUnitTest --stacktrace -DskipFormatKtlint
       - name: Align APK for local signing
