@@ -302,12 +302,7 @@ fun YouTubePlaylistMenu(
             navController = navController,
             songIds = null,
             onPreAdd = { _ ->
-                val allSongs = songs
-                    .ifEmpty {
-                        YouTube.playlist(playlist.id).completed().getOrNull()?.songs.orEmpty()
-                    }.map {
-                        it.toMediaMetadata()
-                    }
+                val allSongs = YouTube.playlist(playlist.id).completed().getOrThrow().songs.map { it.toMediaMetadata() }
                 database.inTransaction {
                     allSongs.forEach(::insert)
                 }
