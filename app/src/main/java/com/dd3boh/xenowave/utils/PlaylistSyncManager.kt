@@ -1,8 +1,6 @@
 package com.dd3boh.xenowave.utils
 
 import android.content.Context
-import com.dd3boh.xenowave.constants.AccountChannelHandleKey
-import com.dd3boh.xenowave.constants.AccountEmailKey
 import com.dd3boh.xenowave.constants.DataSyncIdKey
 import com.dd3boh.xenowave.db.MusicDatabase
 import com.dd3boh.xenowave.db.entities.PlaylistSongMap
@@ -31,10 +29,7 @@ import javax.inject.Singleton
 
 /** Stable account/channel identity; cookies and tokens are never saved in the outbox. */
 fun Context.playlistSyncOwner(): String? {
-    val prefs = dataStore.get(DataSyncIdKey).orEmpty()
-    val fallback = listOf(dataStore.get(AccountEmailKey).orEmpty(), dataStore.get(AccountChannelHandleKey).orEmpty())
-    val identity = prefs.ifBlank { fallback.filter { it.isNotBlank() }.joinToString("|") }
-    if (identity.isBlank()) return null
+    val identity = playlistSyncAccountId(dataStore.get(DataSyncIdKey)) ?: return null
     return MessageDigest.getInstance("SHA-256").digest(identity.toByteArray()).joinToString("") { "%02x".format(it) }
 }
 
@@ -193,22 +188,29 @@ class PlaylistSyncManager @Inject constructor(
                     edit(id, owner, browseId) { remote.remove(browseId, entry.videoId, entry.setVideoId!!) }
                 }
 
+                val observedIds = entries(page).mapNotNull { it.setVideoId }.toMutableSet()
+                val addedIds = mutableSetOf<String>()
                 for (entry in desired.entries.filter { it.setVideoId == null }) {
                     val song = database.song(entry.videoId).first() ?: continue
                     // Local audio is preserved locally; uploading files to YouTube Music is unsupported.
                     if (song.song.isLocal) continue
-                    page = read(browseId, owner)
-                    val attempt = PlaylistAddAttempt(entry.mapId, entry.videoId, entries(page).mapNotNull { it.setVideoId }.toSet())
+                    val attempt = PlaylistAddAttempt(entry.mapId, entry.videoId, observedIds.toSet())
                     changeState(id) { it.copy(inFlightAdd = attempt.encode()) }
+                    var acknowledgedId: String? = null
                     try {
-                        edit(id, owner, browseId) { remote.add(browseId, entry.videoId) }
+                        edit(id, owner, browseId) { acknowledgedId = remote.add(browseId, entry.videoId) }
                     } catch (e: Exception) {
                         if (e is ClientRequestException || e is PlaylistWriteRejected) changeState(id) { it.copy(inFlightAdd = null) }
                         throw e
                     }
-                    page = read(browseId, owner)
-                    val setId = PlaylistSyncPlan.recoveredAddition(attempt.before, entries(page), entry.videoId)
-                        ?: throw UnconfirmedPlaylistWrite()
+                    val setId = acknowledgedId ?: run {
+                        page = read(browseId, owner)
+                        observedIds += entries(page).mapNotNull { it.setVideoId }
+                        PlaylistSyncPlan.recoveredAddition(attempt.before, entries(page), entry.videoId)
+                            ?: throw UnconfirmedPlaylistWrite()
+                    }
+                    observedIds += setId
+                    addedIds += setId
                     acknowledgeAdd(id, attempt, setId)
                 }
 
@@ -223,6 +225,7 @@ class PlaylistSyncManager @Inject constructor(
                 if (rename) edit(id, owner, browseId) { remote.rename(browseId.removePrefix("VL"), desired.name) }
                 page = read(browseId, owner)
                 check(entries(page).none { it.setVideoId in removals })
+                check(entries(page).mapNotNull { it.setVideoId }.containsAll(addedIds))
                 if (rename) check(page.playlist.title == desired.name)
                 if (state.orderPending) {
                     val wanted = withIds.entries.mapNotNull { it.setVideoId }.filter { it in entries(page).map { r -> r.setVideoId } }

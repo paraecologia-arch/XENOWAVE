@@ -95,3 +95,12 @@ data class PlaylistAddAttempt(val mapId: Int, val videoId: String, val before: S
         }
     }
 }
+
+/** Match App account normalization, including older backups containing both channel IDs. */
+internal fun playlistSyncAccountId(value: String?): String? = value?.let {
+    when {
+        !it.contains("||") -> it
+        it.endsWith("||") -> it.substringBefore("||")
+        else -> it.substringAfter("||")
+    }
+}?.takeIf { it.isNotBlank() && it != "null" && it != "undefined" }
