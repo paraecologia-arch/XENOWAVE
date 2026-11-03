@@ -19,6 +19,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -26,6 +27,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.TextUnitType
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.dd3boh.xenowave.LocalSnackbarHostState
 import com.dd3boh.xenowave.LocalDatabase
 import com.dd3boh.xenowave.R
 import com.dd3boh.xenowave.constants.ListThumbnailSize
@@ -41,6 +43,8 @@ import com.dd3boh.xenowave.ui.component.items.ListItem
 import com.dd3boh.xenowave.ui.component.items.PlaylistListItem
 import com.dd3boh.xenowave.utils.rememberEnumPreference
 import com.dd3boh.xenowave.utils.rememberPreference
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -55,6 +59,8 @@ fun AddToPlaylistDialog(
     onDismiss: () -> Unit,
 ) {
     val database = LocalDatabase.current
+    val context = LocalContext.current
+    val snackbar = LocalSnackbarHostState.current
     val coroutineScope = rememberCoroutineScope()
 
     val (sortType, onSortTypeChange) = rememberEnumPreference(PlaylistSortTypeKey, PlaylistSortType.CREATE_DATE)
@@ -176,7 +182,16 @@ fun AddToPlaylistDialog(
                     selectedPlaylist = playlist
                     coroutineScope.launch(Dispatchers.IO) {
                         if (onPreAdd != null) {
-                            val result = onPreAdd(playlist)
+                            val result = try {
+                                onPreAdd(playlist)
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (e: Exception) {
+                                withContext(Dispatchers.Main) {
+                                    snackbar.showSnackbar(context.getString(R.string.playlist_load_failed), withDismissAction = true)
+                                }
+                                return@launch
+                            }
                             if (songIds == null) {
                                 songIds = result
                             }
