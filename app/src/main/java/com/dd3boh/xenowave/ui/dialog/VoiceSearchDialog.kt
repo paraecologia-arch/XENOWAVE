@@ -125,11 +125,13 @@ fun VoiceSearchDialog(
 
     // Honour the system animation settings (0 disables window animations).
     val animationsEnabled = remember {
-        Settings.Global.getFloat(
-            context.contentResolver,
-            Settings.Global.ANIMATOR_DURATION_SCALE,
-            1f
-        ) > 0f
+        runCatching {
+            Settings.Global.getFloat(
+                context.contentResolver,
+                Settings.Global.ANIMATOR_DURATION_SCALE,
+                1f
+            ) > 0f
+        }.getOrDefault(true)
     }
 
     val phase = if (animationsEnabled) {

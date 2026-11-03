@@ -49,6 +49,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastAny
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.dd3boh.xenowave.LocalDatabase
@@ -90,6 +92,7 @@ fun SearchBarContainer(
     val focusManager = LocalFocusManager.current
     val playerConnection = LocalPlayerConnection.current
     val globalSnackbarHostState = LocalSnackbarHostState.current
+    val lifecycleOwner = LocalLifecycleOwner.current
 
     val enabledTabs by rememberPreference(EnabledTabsKey, defaultValue = DEFAULT_ENABLED_TABS)
     var searchSource by rememberEnumPreference(SearchSourceKey, SearchSource.ONLINE)
@@ -166,7 +169,11 @@ fun SearchBarContainer(
         showVoiceSearch = false
         if (pausedForVoiceSearch) {
             pausedForVoiceSearch = false
-            playerConnection?.player?.play()
+            // Do not start playback from the background when the dialog is
+            // dismissed because the app went to the background.
+            if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                playerConnection?.player?.play()
+            }
         }
     }
 

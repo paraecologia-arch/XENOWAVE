@@ -260,6 +260,8 @@ class UpdateWorker(
             is InstallDecision.Skip -> Result.success()
 
             InstallDecision.Install -> {
+                // Never keep a previous session from another attempt around.
+                installer.abandonStaleSessions()
                 UpdateStatusStore.setPendingVersion(context, metadata.versionCode)
                 UpdateStatusStore.markInstallAttempt(context, System.currentTimeMillis())
                 UpdateStatusStore.setPhase(context, UpdatePhase.INSTALLING)
