@@ -235,7 +235,9 @@ class PlaylistSyncManager @Inject constructor(
                     if (latest.revision != initialRevision || latest.deleted) {
                         // Another local edit occurred during the requests. Keep it pending, but move
                         // the baseline forward so a newly added song can subsequently be removed.
-                        savePlaylistSyncState(latest.copy(baseline = acknowledged.encode(), error = null))
+                        val known = PlaylistSyncSnapshot.decode(latest.baseline).entries.mapNotNull { it.setVideoId }.toSet()
+                        val baseline = acknowledged.copy(entries = acknowledged.entries.filter { it.setVideoId in known })
+                        savePlaylistSyncState(latest.copy(baseline = baseline.encode(), error = null))
                         false
                     } else {
                         applyRemote(id, page, owner)
