@@ -44,7 +44,7 @@ project. This app is both a local media player and a YouTube Music client.
     - Song downloading (offline playback)
     - Seamless playback: no ADs & background playback
     - Account synchronization
-        - Full playlist sync from the app to the remote account is temporarily unavailable
+        - Playlist changes are queued on the device and synced to YouTube Music in read/write mode (create, rename, add/remove occurrences, reorder and delete). Pending edits survive restarts and are kept if a request fails. Local audio files stay on the device. See [playlist synchronization](docs/playlist-sync.md) for conflict and retry behavior.
 - Local audio file playback (ex. MP3, OGG, FLAC, etc.)
     - Play local and YouTube Music songs at the same time
     - Uses a custom tag extractor instead of MediaStore's broken metadata extractor! (e.g. tags delimited with \\ now show up properly)
