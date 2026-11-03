@@ -186,6 +186,25 @@ val LastUpdateCheckKey = longPreferencesKey("lastUpdateCheck")
 val LastVersionKey = stringPreferencesKey("lastVersion")
 val UpdateAvailableKey = booleanPreferencesKey("updateAvailable")
 
+/**
+ * Automatic updates
+ */
+val AutoUpdateEnabledKey = booleanPreferencesKey("autoUpdateEnabled")
+val UpdateChannelKey = stringPreferencesKey("updateChannel")
+val UpdateAutoDownloadUnmeteredKey = booleanPreferencesKey("updateAutoDownloadUnmetered")
+val UpdatePhaseKey = stringPreferencesKey("updatePhase")
+val UpdateProgressKey = intPreferencesKey("updateProgress")
+val UpdateVersionCodeKey = intPreferencesKey("updateVersionCode")
+val UpdateVersionNameKey = stringPreferencesKey("updateVersionName")
+val UpdateApkNameKey = stringPreferencesKey("updateApkName")
+val UpdateApkSizeKey = longPreferencesKey("updateApkSize")
+val UpdateApkSha256Key = stringPreferencesKey("updateApkSha256")
+val UpdateDownloadUrlKey = stringPreferencesKey("updateDownloadUrl")
+val UpdateMetadataJsonKey = stringPreferencesKey("updateMetadataJson")
+val UpdatePendingVersionCodeKey = intPreferencesKey("updatePendingVersionCode")
+val UpdateInstallAttemptKey = longPreferencesKey("updateInstallAttempt")
+val UpdateErrorKey = stringPreferencesKey("updateError")
+
 val LanguageCodeToName = mapOf(
     "af" to "Afrikaans",
     "az" to "Azərbaycan",

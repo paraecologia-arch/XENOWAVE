@@ -189,6 +189,19 @@ fun AboutScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 PreferenceEntry(
+                    title = { Text(stringResource(R.string.update_settings_title)) },
+                    icon = {
+                        com.dd3boh.xenowave.ui.icons.XenoIcon(
+                            icon = com.dd3boh.xenowave.ui.icons.XenoSystemIcons.Autorenew,
+                            contentDescription = null
+                        )
+                    },
+                    description = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                    onClick = {
+                        navController.navigate("settings/updates")
+                    }
+                )
+                PreferenceEntry(
                     title = { Text(stringResource(R.string.attribution_title)) },
                     onClick = {
                         navController.navigate("settings/about/attribution")

@@ -180,6 +180,7 @@ import com.dd3boh.xenowave.ui.screens.settings.LyricsSettings
 import com.dd3boh.xenowave.ui.screens.settings.PlayerSettings
 import com.dd3boh.xenowave.ui.screens.settings.SettingsScreen
 import com.dd3boh.xenowave.ui.screens.settings.StorageSettings
+import com.dd3boh.xenowave.ui.screens.settings.UpdateSettingsScreen
 import com.dd3boh.xenowave.ui.theme.ColorSaver
 import com.dd3boh.xenowave.ui.theme.DefaultThemeColor
 import com.dd3boh.xenowave.ui.theme.XenoWaveTheme
@@ -758,6 +759,9 @@ class MainActivity : ComponentActivity() {
                                     }
                                     composable("settings/experimental") {
                                         ExperimentalSettings(navController, scrollBehavior)
+                                    }
+                                    composable("settings/updates") {
+                                        UpdateSettingsScreen(navController, scrollBehavior)
                                     }
                                     composable("settings/about") {
                                         AboutScreen(navController, scrollBehavior)
