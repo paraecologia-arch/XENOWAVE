@@ -28,6 +28,7 @@ import com.dd3boh.xenowave.db.entities.PlaylistEntity
 import com.dd3boh.xenowave.db.entities.PlaylistEntity.Companion.generatePlaylistId
 import com.dd3boh.xenowave.db.entities.PlaylistSongMap
 import com.dd3boh.xenowave.db.entities.PlaylistSongMapPreview
+import com.dd3boh.xenowave.db.entities.PlaylistSyncState
 import com.dd3boh.xenowave.db.entities.QueueEntity
 import com.dd3boh.xenowave.db.entities.QueueSongMap
 import com.dd3boh.xenowave.db.entities.RecentActivityEntity
@@ -67,8 +68,11 @@ class MusicDatabase(
 
     fun close() = delegate.close()
 
+    fun <T> inTransaction(block: MusicDatabase.() -> T): T =
+        delegate.runInTransaction(java.util.concurrent.Callable { block(this) })
+
     companion object {
-        const val MUSIC_DATABASE_VERSION = 20
+        const val MUSIC_DATABASE_VERSION = 21
     }
 }
 
@@ -78,6 +82,7 @@ class MusicDatabase(
         ArtistEntity::class,
         AlbumEntity::class,
         PlaylistEntity::class,
+        PlaylistSyncState::class,
         SongArtistMap::class,
         SongAlbumMap::class,
         AlbumArtistMap::class,
@@ -117,6 +122,7 @@ class MusicDatabase(
         AutoMigration(from = 17, to = 18, spec = Migration17To18::class), // Fix Room nonsense
         AutoMigration(from = 18, to = 19), // Recent activity
         AutoMigration(from = 19, to = 20, spec = Migration19To20::class), // Db optimization, remove totalplaytime, local media fields
+        AutoMigration(from = 20, to = 21), // Durable playlist synchronization outbox
     ]
 )
 @TypeConverters(Converters::class)
