@@ -250,8 +250,9 @@ interface PlaylistsDao {
 
     @Transaction
     fun update(playlistEntity: PlaylistEntity, playlistItem: PlaylistItem) {
-        updatePlaylistFromSync(playlistEntity.copy(
-            name = if (playlistSyncState(playlistEntity.id)?.pending == true) playlistEntity.name else playlistItem.title,
+        val current = playlistEntityForSync(playlistEntity.id) ?: return
+        updatePlaylistFromSync(current.copy(
+            name = if (playlistSyncState(current.id)?.pending == true) current.name else playlistItem.title,
             browseId = playlistItem.id,
             isEditable = playlistItem.isEditable,
             thumbnailUrl = playlistItem.thumbnail,
