@@ -31,7 +31,10 @@ import com.dd3boh.xenowave.LocalDatabase
 import com.dd3boh.xenowave.R
 import com.dd3boh.xenowave.db.entities.PlaylistEntity
 import com.dd3boh.xenowave.extensions.isUserLoggedIn
-import com.zionhuang.innertube.YouTube
+import com.dd3boh.xenowave.constants.SyncMode
+import com.dd3boh.xenowave.constants.YtmSyncModeKey
+import com.dd3boh.xenowave.utils.playlistSyncOwner
+import com.dd3boh.xenowave.utils.rememberEnumPreference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
@@ -46,6 +49,7 @@ fun CreatePlaylistDialog(
     val database = LocalDatabase.current
     val coroutineScope = rememberCoroutineScope()
     var syncedPlaylist by remember { mutableStateOf(false) }
+    val syncMode by rememberEnumPreference(YtmSyncModeKey, SyncMode.RW)
 
     TextFieldDialog(
         icon = { com.dd3boh.xenowave.ui.icons.XenoIcon(icon = com.dd3boh.xenowave.ui.icons.XenoActionIcons.Add, contentDescription = null) },
@@ -53,26 +57,21 @@ fun CreatePlaylistDialog(
         initialTextFieldValue = TextFieldValue(initialTextFieldValue ?: ""),
         onDismiss = onDismiss,
         onDone = { playlistName ->
+            val owner = if (syncedPlaylist && syncMode == SyncMode.RW) context.playlistSyncOwner() else null
             coroutineScope.launch(Dispatchers.IO) {
-                val browseId = if (syncedPlaylist)
-                    YouTube.createPlaylist(playlistName)
-                else null
-
-                database.query {
-                    insert(
-                        PlaylistEntity(
-                            name = playlistName,
-                            browseId = browseId,
-                            bookmarkedAt = LocalDateTime.now(),
-                            isEditable = true,
-                            isLocal = !syncedPlaylist // && check that all songs are non-local
-                        )
-                    )
+                val playlist = PlaylistEntity(
+                    name = playlistName,
+                    bookmarkedAt = LocalDateTime.now(),
+                    isEditable = true,
+                    isLocal = owner == null,
+                )
+                database.inTransaction {
+                    if (owner != null) createSyncedPlaylist(playlist, owner) else insert(playlist)
                 }
             }
         },
         extraContent = {
-            if (allowSyncing && context.isUserLoggedIn()) {
+            if (allowSyncing && context.isUserLoggedIn() && syncMode == SyncMode.RW && context.playlistSyncOwner() != null) {
                 Row(
                     modifier = Modifier.padding(vertical = 16.dp, horizontal = 40.dp)
                 ) {

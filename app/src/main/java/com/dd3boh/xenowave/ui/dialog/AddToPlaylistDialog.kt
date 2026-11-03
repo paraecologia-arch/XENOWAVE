@@ -41,7 +41,6 @@ import com.dd3boh.xenowave.ui.component.items.ListItem
 import com.dd3boh.xenowave.ui.component.items.PlaylistListItem
 import com.dd3boh.xenowave.utils.rememberEnumPreference
 import com.dd3boh.xenowave.utils.rememberPreference
-import com.zionhuang.innertube.YouTube
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -85,8 +84,8 @@ fun AddToPlaylistDialog(
         mutableStateOf(emptyList<String>())
     }
 
-    LaunchedEffect(Unit) {
-        if (syncMode == SyncMode.RO) {
+    LaunchedEffect(syncMode, allowSyncing, sortType, sortDescending) {
+        if (syncMode == SyncMode.RO || !allowSyncing) {
             database.playlists(PlaylistFilter.LIBRARY, sortType, sortDescending, 1).collect {
                 playlists = it
             }
@@ -189,13 +188,6 @@ fun AddToPlaylistDialog(
                             onDismiss()
                             database.addSongToPlaylist(playlist, songIds!!)
 
-                            if (!playlist.playlist.isLocal) {
-                                playlist.playlist.browseId?.let { plist ->
-                                    songIds?.forEach {
-                                        YouTube.addToPlaylist(plist, it)
-                                    }
-                                }
-                            }
                         }
                     }
                 }
