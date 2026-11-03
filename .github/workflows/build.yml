@@ -8,6 +8,10 @@ on:
     branches:
       - '**'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -27,6 +31,9 @@ jobs:
       - name: Accept SDK licenses
         run: yes | /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --licenses
 
+      - name: Install native build tools
+        run: /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager "cmake;3.31.6" "build-tools;35.0.0"
+
       - name: Build XENOWAVE debug APK and run jvm tests
         run: ./gradlew assembleCoreDebug lintCoreDebug testCoreDebugUnitTest --stacktrace -DskipFormatKtlint
 
@@ -35,3 +42,14 @@ jobs:
         with:
           name: XENOWAVE-core-debug
           path: app/build/outputs/apk/core/debug/*.apk
+
+      - name: Upload validation reports and Room schema
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playlist-sync-validation
+          path: |
+            app/schemas/**/21.json
+            app/build/reports/tests/testCoreDebugUnitTest/
+            app/build/test-results/testCoreDebugUnitTest/
+            app/build/reports/lint-results-coreDebug.*

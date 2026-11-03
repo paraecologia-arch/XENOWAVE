@@ -8,6 +8,7 @@ import androidx.room.Query
 import androidx.room.RawQuery
 import androidx.room.Transaction
 import androidx.room.Update
+import androidx.room.Upsert
 import androidx.sqlite.db.SimpleSQLiteQuery
 import androidx.sqlite.db.SupportSQLiteQuery
 import com.dd3boh.xenowave.constants.PlaylistFilter
@@ -16,6 +17,9 @@ import com.dd3boh.xenowave.db.entities.Playlist
 import com.dd3boh.xenowave.db.entities.PlaylistEntity
 import com.dd3boh.xenowave.db.entities.PlaylistSong
 import com.dd3boh.xenowave.db.entities.PlaylistSongMap
+import com.dd3boh.xenowave.db.entities.PlaylistSyncState
+import com.dd3boh.xenowave.utils.PlaylistSyncEntry
+import com.dd3boh.xenowave.utils.PlaylistSyncSnapshot
 import com.dd3boh.xenowave.extensions.reversed
 import com.zionhuang.innertube.models.PlaylistItem
 import kotlinx.coroutines.flow.Flow
@@ -28,6 +32,62 @@ import kotlinx.coroutines.flow.map
 
 @Dao
 interface PlaylistsDao {
+
+    @Query("SELECT * FROM playlist WHERE id = :id")
+    fun playlistEntityForSync(id: String): PlaylistEntity?
+
+    @Query("SELECT * FROM playlist_sync_state WHERE playlistId = :id")
+    fun playlistSyncState(id: String): PlaylistSyncState?
+
+    @Query("SELECT * FROM playlist_sync_state WHERE playlistId = :id")
+    fun playlistSyncStateFlow(id: String): Flow<PlaylistSyncState?>
+
+    @Query("SELECT * FROM playlist_sync_state WHERE pending = 1 ORDER BY playlistId")
+    fun pendingPlaylistSyncStates(): Flow<List<PlaylistSyncState>>
+
+    @Query("SELECT COUNT(*) FROM playlist_sync_state WHERE browseId = :browseId AND deleted = 1")
+    fun isPlaylistPendingDeletion(browseId: String): Int
+
+    @Upsert
+    fun savePlaylistSyncState(state: PlaylistSyncState)
+
+    @Query("DELETE FROM playlist_sync_state WHERE playlistId = :id")
+    fun forgetPlaylistSyncState(id: String)
+
+    fun playlistSyncSnapshot(id: String): PlaylistSyncSnapshot = PlaylistSyncSnapshot(
+        playlistEntityForSync(id)?.name.orEmpty(),
+        playlistSongMaps(id).map { PlaylistSyncEntry(it.id, it.songId, it.setVideoId) },
+    )
+
+    fun markPlaylistPending(id: String, orderChanged: Boolean = false, deleted: Boolean = false) {
+        val playlist = playlistEntityForSync(id) ?: return
+        val old = playlistSyncState(id)
+        if (playlist.isLocal || !playlist.isEditable || (playlist.browseId == null && old == null)) return
+        val state = old ?: PlaylistSyncState(id, playlist.browseId, null, playlistSyncSnapshot(id).encode())
+        savePlaylistSyncState(state.copy(
+            pending = true, deleted = deleted, revision = state.revision + 1,
+            orderPending = state.orderPending || orderChanged, error = null,
+        ))
+    }
+
+    @Transaction
+    fun createSyncedPlaylist(playlist: PlaylistEntity, ownerId: String) {
+        insert(playlist)
+        savePlaylistSyncState(PlaylistSyncState(
+            playlist.id, null, ownerId, PlaylistSyncSnapshot(playlist.name, emptyList()).encode(), pending = true,
+        ))
+    }
+
+    @Transaction
+    fun queuePlaylistUpload(id: String, ownerId: String) {
+        val playlist = playlistEntityForSync(id) ?: return
+        if (!playlist.isLocal || !playlist.isEditable) return
+        updatePlaylistFromSync(playlist.copy(isLocal = false, browseId = null))
+        playlistSongMaps(id).forEach { updatePlaylistMapFromSync(it.copy(setVideoId = null)) }
+        savePlaylistSyncState(PlaylistSyncState(
+            id, null, ownerId, PlaylistSyncSnapshot(playlist.name, emptyList()).encode(), pending = true,
+        ))
+    }
 
     // region Gets
     @Transaction
@@ -89,6 +149,9 @@ interface PlaylistsDao {
 
     @Query("SELECT * FROM playlist_song_map WHERE playlistId = :playlistId ORDER BY position, id")
     fun playlistSongMaps(playlistId: String): List<PlaylistSongMap>
+
+    @Query("SELECT m.* FROM playlist_song_map m JOIN song s ON m.songId = s.id WHERE m.playlistId = :playlistId AND s.isLocal = 1 ORDER BY m.position, m.id")
+    fun localAudioPlaylistMaps(playlistId: String): List<PlaylistSongMap>
 
     @Query("SELECT * FROM playlist_song_map WHERE playlistId = :playlistId AND position >= :from ORDER BY position, id")
     fun songMapsToPlaylist(playlistId: String, from: Int): List<PlaylistSongMap>
@@ -154,20 +217,42 @@ interface PlaylistsDao {
     fun insert(playlist: PlaylistEntity)
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
-    fun insert(map: PlaylistSongMap)
+    fun insertPlaylistMapFromSync(map: PlaylistSongMap): Long
+
+    @Transaction
+    fun insert(map: PlaylistSongMap): Long {
+        markPlaylistPending(map.playlistId)
+        return insertPlaylistMapFromSync(map)
+    }
     // endregion
 
     // region Updates
     @Update
-    fun update(playlist: PlaylistEntity)
+    fun updatePlaylistFromSync(playlist: PlaylistEntity)
+
+    @Transaction
+    fun update(playlist: PlaylistEntity) {
+        val previous = playlistEntityForSync(playlist.id)
+        if (previous != null && previous.name != playlist.name) markPlaylistPending(playlist.id)
+        updatePlaylistFromSync(playlist.copy(browseId = playlist.browseId ?: previous?.browseId))
+        if (playlist.isLocal) forgetPlaylistSyncState(playlist.id)
+    }
 
     @Update
-    fun update(map: PlaylistSongMap)
+    fun updatePlaylistMapFromSync(map: PlaylistSongMap)
 
-    @Update
+    @Transaction
+    fun update(map: PlaylistSongMap) {
+        val previous = playlistSongMaps(map.playlistId).firstOrNull { it.id == map.id }
+        if (previous?.position != map.position) markPlaylistPending(map.playlistId, orderChanged = true)
+        updatePlaylistMapFromSync(map)
+    }
+
+    @Transaction
     fun update(playlistEntity: PlaylistEntity, playlistItem: PlaylistItem) {
-        update(playlistEntity.copy(
-            name = playlistItem.title,
+        val current = playlistEntityForSync(playlistEntity.id) ?: return
+        updatePlaylistFromSync(current.copy(
+            name = if (playlistSyncState(current.id)?.pending == true) current.name else playlistItem.title,
             browseId = playlistItem.id,
             isEditable = playlistItem.isEditable,
             thumbnailUrl = playlistItem.thumbnail,
@@ -203,10 +288,11 @@ interface PlaylistsDao {
         val remaining = maps.filterNot { it.id in mapIds }
         if (remaining.size == maps.size) return
 
+        markPlaylistPending(playlistId)
         deletePlaylistSongMaps(playlistId, mapIds.toList())
         remaining.forEachIndexed { index, map ->
             if (map.position != index) {
-                update(map.copy(position = index))
+                updatePlaylistMapFromSync(map.copy(position = index))
             }
         }
     }
@@ -220,15 +306,20 @@ interface PlaylistsDao {
         delete(target)
         maps.filterNot { it.id == mapId }.forEachIndexed { index, map ->
             if (map.position != index) {
-                update(map.copy(position = index))
+                updatePlaylistMapFromSync(map.copy(position = index))
             }
         }
         return true
     }
 
-    @Transaction
     @Query("UPDATE playlist SET isLocal = 1 WHERE id = :playlistId")
-    fun playlistDesync(playlistId: String)
+    fun markPlaylistLocal(playlistId: String)
+
+    @Transaction
+    fun playlistDesync(playlistId: String) {
+        markPlaylistLocal(playlistId)
+        forgetPlaylistSyncState(playlistId)
+    }
 
     @Transaction
     @Query(
@@ -242,23 +333,48 @@ interface PlaylistsDao {
         WHERE playlistId = :playlistId AND position BETWEEN MIN(:fromPosition, :toPosition) AND MAX(:fromPosition, :toPosition)
     """
     )
-    fun move(playlistId: String, fromPosition: Int, toPosition: Int)
+    fun movePlaylistMapPositions(playlistId: String, fromPosition: Int, toPosition: Int)
+
+    @Transaction
+    fun move(playlistId: String, fromPosition: Int, toPosition: Int) {
+        if (fromPosition == toPosition) return
+        markPlaylistPending(playlistId, orderChanged = true)
+        movePlaylistMapPositions(playlistId, fromPosition, toPosition)
+    }
     // endregion
 
     // region Deletes
     @Delete
-    fun delete(playlist: PlaylistEntity)
+    fun deletePlaylistFromSync(playlist: PlaylistEntity)
+
+    @Transaction
+    fun delete(playlist: PlaylistEntity) {
+        markPlaylistPending(playlist.id, deleted = true)
+        deletePlaylistFromSync(playlist)
+    }
 
     @Query("DELETE FROM playlist WHERE browseId = :browseId")
     fun deletePlaylistById(browseId: String)
 
     @Query("DELETE FROM playlist_song_map WHERE playlistId = :playlistId")
-    fun clearPlaylist(playlistId: String)
+    fun clearPlaylistFromSync(playlistId: String)
+
+    @Transaction
+    fun clearPlaylist(playlistId: String) {
+        markPlaylistPending(playlistId)
+        clearPlaylistFromSync(playlistId)
+    }
 
     @Query("DELETE FROM playlist_song_map WHERE playlistId = :playlistId AND id IN (:ids)")
     fun deletePlaylistSongMaps(playlistId: String, ids: List<Int>)
 
     @Delete
-    fun delete(playlistSongMap: PlaylistSongMap)
+    fun deletePlaylistMapFromSync(playlistSongMap: PlaylistSongMap)
+
+    @Transaction
+    fun delete(playlistSongMap: PlaylistSongMap) {
+        markPlaylistPending(playlistSongMap.playlistId)
+        deletePlaylistMapFromSync(playlistSongMap)
+    }
     // endregion
 }

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="playlist_sync_pending">Alterações salvas neste dispositivo. Aguardando sincronização com sua conta.</string>
+    <string name="playlist_sync_failed">Não foi possível concluir a sincronização. Suas alterações pendentes estão salvas neste dispositivo.</string>
+    <string name="playlist_sync_unconfirmed">Aguardando confirmar um pedido no YouTube Music. O reenvio automático está pausado para evitar duplicações.</string>
+    <string name="playlist_sync_unconfirmed_retry">Confira primeiro sua playlist no YouTube Music. Reenvie somente se a música solicitada ou a nova playlist estiver ausente: reenviar um pedido que já deu certo pode criar uma duplicação.</string>
+    <string name="playlist_sync_resend">Reenviar pedido</string>
+    <string name="playlist_sync_upload">Enviar ao YouTube Music</string>
+    <string name="playlist_sync_upload_description">Será criada uma playlist na conta conectada, vinculada a esta lista. As próximas edições também serão sincronizadas. Arquivos de áudio locais continuarão apenas neste dispositivo.</string>
+</resources>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="playlist_sync_pending">Changes saved on this device. Waiting to sync with your account.</string>
+    <string name="playlist_sync_failed">Sync could not be completed. Your pending changes are saved on this device.</string>
+    <string name="playlist_sync_unconfirmed">Waiting to confirm a request with YouTube Music. Automatic resending is paused to avoid duplicates.</string>
+    <string name="playlist_sync_unconfirmed_retry">First check your playlist in YouTube Music. Resend only if the requested song or new playlist is missing: resending a request that already succeeded can create a duplicate.</string>
+    <string name="playlist_sync_resend">Resend request</string>
+    <string name="playlist_sync_upload">Send to YouTube Music</string>
+    <string name="playlist_sync_upload_description">A playlist will be created in the connected account and linked to this list. Future edits will also be synchronized. Local audio files will stay on this device.</string>
+</resources>

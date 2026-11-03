@@ -356,10 +356,6 @@ fun PlaylistMenu(
                 database.query {
                     update(playlist.playlist.copy(name = name))
                 }
-
-                coroutineScope.launch(syncCoroutine) {
-                    playlist.playlist.browseId?.let { YouTube.renamePlaylist(it, name) }
-                }
             }
         )
     }
@@ -434,12 +430,6 @@ fun PlaylistMenu(
                         database.query {
                             delete(playlist.playlist)
                         }
-
-                        if (!playlist.playlist.isLocal) {
-                            coroutineScope.launch(syncCoroutine) {
-                                playlist.playlist.browseId?.let { YouTube.deletePlaylist(it) }
-                            }
-                        }
                     }
                 ) {
                     Text(text = stringResource(android.R.string.ok))
@@ -470,15 +460,7 @@ fun PlaylistMenu(
         AddToPlaylistDialog(
             navController = navController,
             songIds = songs.map { it.id },
-            onPreAdd = { playlist ->
-                // add songs to playlist and push to ytm
-                songs.let { playlist.playlist.browseId?.let { YouTube.addPlaylistToPlaylist(it, playlist.id) } }
-
-                playlist.playlist.browseId?.let { playlistId ->
-                    YouTube.addPlaylistToPlaylist(playlistId, playlist.id)
-                }
-                songs.map { it.id }
-            },
+            onPreAdd = { _ -> songs.map { it.id } },
             onDismiss = { showChoosePlaylistDialog = false }
         )
     }

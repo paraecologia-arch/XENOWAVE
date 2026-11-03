@@ -566,12 +566,10 @@ fun PlayerMenu(
         AddToPlaylistDialog(
             navController = navController,
             songIds = listOf(mediaMetadata.id),
-            onPreAdd = { playlist ->
-                database.transaction {
+            onPreAdd = { _ ->
+                database.inTransaction {
                     insert(mediaMetadata)
                 }
-
-                playlist.playlist.browseId?.let { YouTube.addToPlaylist(it, mediaMetadata.id) }
 
                 listOf(mediaMetadata.id)
             },
