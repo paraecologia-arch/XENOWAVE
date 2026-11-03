@@ -123,6 +123,7 @@ import com.dd3boh.xenowave.utils.makeTimeString
 import com.dd3boh.xenowave.utils.getDownloadState
 import com.dd3boh.xenowave.utils.rememberEnumPreference
 import com.dd3boh.xenowave.utils.rememberPreference
+import com.dd3boh.xenowave.utils.playlistSyncOwner
 import com.dd3boh.xenowave.utils.syncCoroutine
 import com.dd3boh.xenowave.viewmodels.LocalPlaylistViewModel
 import com.zionhuang.innertube.YouTube
@@ -257,10 +258,6 @@ fun LocalPlaylistScreen(
                     database.query {
                         update(playlistEntity.copy(name = name))
                     }
-
-                    viewModel.viewModelScope.launch(syncCoroutine) {
-                        playlistEntity.browseId?.let { YouTube.renamePlaylist(it, name) }
-                    }
                 }
             )
         }
@@ -292,7 +289,7 @@ fun LocalPlaylistScreen(
                         showRemoveDownloadDialog = false
                         if (!editable) {
                             database.transaction {
-                                playlistWithSongs.first?.id?.let { clearPlaylist(it) }
+                                playlistWithSongs.first?.id?.let { clearPlaylistFromSync(it) }
                             }
                         }
 
@@ -340,10 +337,6 @@ fun LocalPlaylistScreen(
                         showDeletePlaylistDialog = false
                         database.query {
                             playlistWithSongs.first?.let { delete(it.playlist) }
-                        }
-
-                        viewModel.viewModelScope.launch(Dispatchers.IO) {
-                            playlistWithSongs.first?.playlist?.browseId?.let { YouTube.deletePlaylist(it) }
                         }
 
                         navController.popBackStack()
@@ -483,46 +476,6 @@ fun LocalPlaylistScreen(
             dragInfo?.let { (from, to) ->
                 database.transaction {
                     move(viewModel.playlistId, from, to)
-                }
-                if (playlistWithSongs.first?.playlist?.isLocal == false) {
-                    viewModel.viewModelScope.launch(Dispatchers.IO) {
-                        val from = from
-                        val to = to
-                        val playlistSongMap = database.songMapsToPlaylist(viewModel.playlistId, 0)
-
-                        var fromIndex = from //- headerItems
-                        val toIndex = to //- headerItems
-
-                        var successorIndex = if (fromIndex > toIndex) toIndex else toIndex + 1
-
-                        /*
-                        * Because of how YouTube Music handles playlist changes, you necessarily need to
-                        * have the SetVideoId of the successor when trying to move a song inside of a
-                        * playlist.
-                        * For this reason, if we are trying to move a song to the last element of a playlist,
-                        * we need to first move it as penultimate and then move the last element before it.
-                        */
-                        if (successorIndex >= playlistSongMap.size) {
-                            playlistSongMap[fromIndex].setVideoId?.let { setVideoId ->
-                                playlistSongMap[toIndex].setVideoId?.let { successorSetVideoId ->
-                                    playlistWithSongs.first?.playlist?.browseId?.let { browseId ->
-                                        YouTube.moveSongPlaylist(browseId, setVideoId, successorSetVideoId)
-                                    }
-                                }
-                            }
-
-                            successorIndex = fromIndex
-                            fromIndex = toIndex
-                        }
-
-                        playlistSongMap[fromIndex].setVideoId?.let { setVideoId ->
-                            playlistSongMap[successorIndex].setVideoId?.let { successorSetVideoId ->
-                                playlistWithSongs.first?.playlist?.browseId?.let { browseId ->
-                                    YouTube.moveSongPlaylist(browseId, setVideoId, successorSetVideoId)
-                                }
-                            }
-                        }
-                    }
                 }
                 dragInfo = null
             }
@@ -899,6 +852,49 @@ fun LocalPlaylistHeader(
     val isNetworkConnected = LocalNetworkConnected.current
     val scope = rememberCoroutineScope()
     val syncUtils = LocalSyncUtils.current
+    val syncState by remember(playlist.id) { database.playlistSyncStateFlow(playlist.id) }.collectAsState(initial = null)
+    var syncing by remember { mutableStateOf(false) }
+    var confirmRetry by remember { mutableStateOf(false) }
+    var confirmUpload by remember { mutableStateOf(false) }
+    val syncMode by rememberEnumPreference(YtmSyncModeKey, SyncMode.RW)
+    fun synchronize(retryUnconfirmed: Boolean = false) {
+        scope.launch {
+            syncing = true
+            try {
+                val success = syncUtils.syncPlaylist(playlist.playlist.browseId, playlist.id, retryUnconfirmed)
+                snackbarHostState.showSnackbar(
+                    context.getString(if (success) R.string.playlist_synced else R.string.playlist_sync_failed),
+                    withDismissAction = true,
+                )
+            } finally {
+                syncing = false
+            }
+        }
+    }
+    if (confirmUpload) {
+        DefaultDialog(
+            onDismiss = { confirmUpload = false },
+            content = { Text(stringResource(R.string.playlist_sync_upload_description), modifier = Modifier.padding(18.dp)) },
+            buttons = {
+                TextButton(onClick = { confirmUpload = false }) { Text(stringResource(android.R.string.cancel)) }
+                TextButton(onClick = {
+                    confirmUpload = false
+                    val owner = context.playlistSyncOwner()
+                    if (owner != null) scope.launch(Dispatchers.IO) { database.queuePlaylistUpload(playlist.id, owner) }
+                }) { Text(stringResource(R.string.playlist_sync_upload)) }
+            },
+        )
+    }
+    if (confirmRetry) {
+        DefaultDialog(
+            onDismiss = { confirmRetry = false },
+            content = { Text(stringResource(R.string.playlist_sync_unconfirmed_retry), modifier = Modifier.padding(18.dp)) },
+            buttons = {
+                TextButton(onClick = { confirmRetry = false }) { Text(stringResource(android.R.string.cancel)) }
+                TextButton(onClick = { confirmRetry = false; synchronize(true) }) { Text(stringResource(R.string.playlist_sync_resend)) }
+            },
+        )
+    }
 
     val downloadUtil = LocalDownloadUtil.current
     var downloadState by remember {
@@ -1001,6 +997,22 @@ fun LocalPlaylistHeader(
                     }
                 }
 
+                if (playlist.playlist.isLocal && playlist.playlist.isEditable && syncMode == SyncMode.RW && context.playlistSyncOwner() != null) {
+                    TextButton(onClick = { confirmUpload = true }) { Text(stringResource(R.string.playlist_sync_upload)) }
+                }
+
+                if (syncState?.pending == true) {
+                    Text(
+                        text = stringResource(when (syncState?.error) {
+                            "UNCONFIRMED" -> R.string.playlist_sync_unconfirmed
+                            "FAILED" -> R.string.playlist_sync_failed
+                            else -> R.string.playlist_sync_pending
+                        }),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (syncState?.error == null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
+                    )
+                }
+
                 Row {
                     IconButton(
                         onClick = onShowEditDialog
@@ -1011,18 +1023,12 @@ fun LocalPlaylistHeader(
                         )
                     }
 
-                    if (playlist.playlist.browseId != null) {
+                    if (!playlist.playlist.isLocal && (playlist.playlist.browseId != null || syncState?.pending == true)) {
                         IconButton(
                             onClick = {
-                                scope.launch {
-                                    syncUtils.syncPlaylist(playlist.playlist.browseId, playlist.id)
-                                    snackbarHostState.showSnackbar(
-                                        message = context.getString(R.string.playlist_synced),
-                                        withDismissAction = true
-                                    )
-                                }
+                                if (syncState?.error == "UNCONFIRMED") confirmRetry = true else synchronize()
                             },
-                            enabled = isNetworkConnected
+                            enabled = isNetworkConnected && !syncing
                         ) {
                             com.dd3boh.xenowave.ui.icons.XenoIcon(
                                 icon = com.dd3boh.xenowave.ui.icons.XenoSystemIcons.Sync,

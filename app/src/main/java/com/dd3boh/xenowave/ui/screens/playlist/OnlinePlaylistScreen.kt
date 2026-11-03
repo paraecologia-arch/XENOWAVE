@@ -258,7 +258,7 @@ fun OnlinePlaylistScreen(
                     onClick = {
                         showRemoveDownloadDialog = false
                         database.transaction {
-                            dbPlaylist?.id?.let { clearPlaylist(it) }
+                            dbPlaylist?.takeIf { !it.playlist.isEditable }?.id?.let { clearPlaylistFromSync(it) }
                         }
 
                         songs.forEach { song ->
@@ -378,10 +378,11 @@ fun OnlinePlaylistScreen(
                                                                         PlaylistSongMap(
                                                                             songId = song.id,
                                                                             playlistId = playlistEntity.id,
-                                                                            position = index
+                                                                            position = index,
+                                                                            setVideoId = song.setVideoId,
                                                                         )
                                                                     }
-                                                                    .forEach(::insert)
+                                                                    .forEach(::insertPlaylistMapFromSync)
                                                             }
                                                         } else {
                                                             database.transaction {

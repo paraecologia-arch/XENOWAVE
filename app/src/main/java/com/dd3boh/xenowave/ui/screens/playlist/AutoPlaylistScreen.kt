@@ -286,7 +286,7 @@ fun AutoPlaylistScreen(
                     onClick = {
                         showRemoveDownloadDialog = false
                         database.transaction {
-                            clearPlaylist(playlist.id)
+                            clearPlaylistFromSync(playlist.id)
                         }
 
                         songs.forEach { song ->
