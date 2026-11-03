@@ -1,0 +1,36 @@
+name: Build public XENOWAVE APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-java@v4
+        with:
+          java-version: 21
+          distribution: temurin
+          cache: gradle
+      - name: Accept SDK licenses
+        run: yes | /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --licenses
+      - name: Build release and validate
+        run: ./gradlew assembleCoreRelease lintCoreRelease testCoreDebugUnitTest --stacktrace -DskipFormatKtlint
+      - name: Align APK for local signing
+        run: |
+          mkdir -p public-apk
+          APK=$(find app/build/outputs/apk/core/release -name '*.apk' -print -quit)
+          test -n "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -P 16 -f -v 4 "$APK" public-apk/XENOWAVE-0.10.1-core-unsigned.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: XENOWAVE-public-unsigned
+          path: public-apk/*.apk
+          if-no-files-found: error
+          retention-days: 7
