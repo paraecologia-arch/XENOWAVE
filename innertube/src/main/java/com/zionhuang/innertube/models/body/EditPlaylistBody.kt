@@ -15,7 +15,9 @@ sealed class Action {
     @Serializable
     data class AddVideoAction(
         val action: String = "ACTION_ADD_VIDEO",
-        val addedVideoId: String
+        val addedVideoId: String,
+        // The playlist UI has already decided whether to add this occurrence.
+        val dedupeOption: String = "DEDUPE_OPTION_SKIP",
     ) : Action()
 
     @Serializable
