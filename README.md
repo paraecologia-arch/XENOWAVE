@@ -12,9 +12,11 @@ A Material 3 YouTube Music client & local music player for Android
 
 ## Baixar e instalar gratuitamente
 
-**[Baixar o APK do XENOWAVE para Android](https://github.com/paraecologia-arch/XENOWAVE/releases)**
+**[Baixar o APK do XENOWAVE para Android](https://github.com/paraecologia-arch/XENOWAVE/releases/download/v0.10.1-beta.1/XENOWAVE-0.10.1-beta.1-core.apk)**
 
-1. Abra o lançamento mais recente e, em **Assets**, baixe o arquivo **XENOWAVE-0.10.1-beta.1-core.apk**.
+[Ver notas da versão e outros lançamentos](https://github.com/paraecologia-arch/XENOWAVE/releases).
+
+1. Use o link acima para baixar **XENOWAVE-0.10.1-beta.1-core.apk**.
 2. No celular, abra o APK e permita a instalação por esse navegador ou gerenciador de arquivos, se o Android solicitar.
 3. Conclua a instalação e abra o **XENOWAVE**.
 
