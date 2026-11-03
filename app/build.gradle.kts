@@ -63,7 +63,7 @@ android {
             isShrinkResources = true
             isCrunchPngs = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName("xenowave_release")
+            signingConfig = if (keystoreProperties.isEmpty) null else signingConfigs.getByName("xenowave_release")
         }
         debug {
             applicationIdSuffix = ".debug"
