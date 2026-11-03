@@ -1,9 +1,29 @@
 package com.dd3boh.xenowave.utils
 
+import com.zionhuang.innertube.models.body.Action
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.*
 import org.junit.Test
 
 class PlaylistSyncPlanTest {
+    @Test
+    fun accountIdentityMatchesCurrentAndLegacyChannelIds() {
+        assertEquals("channel", playlistSyncAccountId("channel"))
+        assertEquals("channel", playlistSyncAccountId("channel||"))
+        assertEquals("channel", playlistSyncAccountId("account||channel"))
+        assertNull(playlistSyncAccountId(null))
+        assertNull(playlistSyncAccountId(""))
+        assertNull(playlistSyncAccountId("undefined"))
+    }
+
+    @Test
+    fun addingAnIntentionalDuplicateSendsTheApiDuplicateOverride() {
+        val encoded = Json { encodeDefaults = true }.encodeToString(Action.AddVideoAction.serializer(), Action.AddVideoAction(addedVideoId = "song"))
+        assertEquals("DEDUPE_OPTION_SKIP", Json.parseToJsonElement(encoded).jsonObject["dedupeOption"]!!.jsonPrimitive.content)
+    }
+
     @Test
     fun removingOneDuplicateKeepsTheOtherOccurrence() {
         val first = PlaylistSyncEntry(1, "same-song", "first")

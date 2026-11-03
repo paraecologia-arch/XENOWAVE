@@ -209,6 +209,24 @@ class PlaylistSyncManagerTest {
     }
 
     @Test
+    fun addsALargeBatchWithoutRereadingTheWholePlaylistForEachSong() = runBlocking {
+        repeat(40) { add("batch-$it") }
+        assertTrue(manager.syncPlaylist("local"))
+        assertEquals(40, remote.addCalls)
+        assertTrue(remote.readCalls <= 3)
+        assertEquals(43, database.playlistSongMaps("local").size)
+    }
+
+    @Test
+    fun fallsBackToReadingWhenAnOlderResponseOmitsTheOccurrenceId() = runBlocking {
+        add("new")
+        remote.acknowledge = false
+        assertTrue(manager.syncPlaylist("local"))
+        assertEquals(1, remote.addCalls)
+        assertNotNull(database.playlistSongMaps("local").last().setVideoId)
+    }
+
+    @Test
     fun rollingBackALocalEditAlsoRollsBackItsOutboxChange() {
         val before = database.playlistSyncState("local")
         runCatching {
@@ -248,6 +266,7 @@ class PlaylistSyncManagerTest {
         var failDelete = false
         var failRead = false
         var afterAdd: (() -> Unit)? = null
+        var acknowledge = true
         val songs = mutableListOf(song("a", "first-a"), song("a", "second-a"), song("b", "b-set"))
         fun song(id: String, setId: String) = SongItem(id = id, title = id, artists = emptyList(), duration = 60, thumbnail = "https://example.com/art.jpg", setVideoId = setId)
         fun item() = PlaylistItem("remote", title, null, songs.size.toString(), null, null, null, null, isEditable = true)
@@ -265,12 +284,13 @@ class PlaylistSyncManagerTest {
             if (failCreateAfterApply) { failCreateAfterApply = false; throw IOException("Lost create response") }
             return "remote"
         }
-        override suspend fun add(id: String, videoId: String) {
+        override suspend fun add(id: String, videoId: String): String? {
             addCalls++
             if (failBeforeAdd) { failBeforeAdd = false; throw IOException("Lost connection") }
             songs += song(videoId, "added-$addCalls")
             afterAdd?.invoke()
             if (failAfterAdd == addCalls) throw IOException("Lost add response")
+            return if (acknowledge) "added-$addCalls" else null
         }
         override suspend fun remove(id: String, videoId: String, setId: String) { songs.removeAll { it.setVideoId == setId } }
         override suspend fun move(id: String, setId: String, successor: String) {

@@ -42,16 +42,16 @@ class PlaylistSyncMigrationTest {
             old.execSQL("INSERT INTO playlist_song_map (playlistId, songId, position, setVideoId) VALUES ('existing', 'song', 0, 'occurrence')")
             old.version = 20
         }
+        val migrated = Room.databaseBuilder(context, InternalDatabase::class.java, name).allowMainThreadQueries().build()
         try {
-            Room.databaseBuilder(context, InternalDatabase::class.java, name).allowMainThreadQueries().build().use { migrated ->
                 assertEquals("Keep me", migrated.dao.playlistEntityForSync("existing")!!.name)
                 assertEquals("occurrence", migrated.dao.playlistSongMaps("existing").single().setVideoId)
                 assertNull(migrated.dao.playlistSyncState("existing"))
                 migrated.dao.update(migrated.dao.playlistEntityForSync("existing")!!.copy(name = "Queued rename"))
                 assertTrue(migrated.dao.playlistSyncState("existing")!!.pending)
                 assertEquals("Keep me", PlaylistSyncSnapshot.decode(migrated.dao.playlistSyncState("existing")!!.baseline).name)
-            }
         } finally {
+            migrated.close()
             context.deleteDatabase(name)
         }
     }
