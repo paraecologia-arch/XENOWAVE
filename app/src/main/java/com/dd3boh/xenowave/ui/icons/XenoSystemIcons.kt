@@ -69,6 +69,8 @@ object XenoSystemIcons {
     @get:DrawableRes
     val Logout: Int get() = R.drawable.xeno_icon_logout
     @get:DrawableRes
+    val Mic: Int get() = R.drawable.xeno_icon_mic
+    @get:DrawableRes
     val MoreTime: Int get() = R.drawable.xeno_icon_more_time
     @get:DrawableRes
     val NoCell: Int get() = R.drawable.xeno_icon_no_cell

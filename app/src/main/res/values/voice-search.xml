@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="voice_search_open">Search by voice</string>
+    <string name="voice_search_title">Say the song name</string>
+    <string name="voice_search_listening">Listening…</string>
+    <string name="voice_search_processing">Searching…</string>
+    <string name="voice_search_retry">Try again</string>
+    <string name="voice_search_cancel">Cancel</string>
+    <string name="voice_search_permission_denied">Microphone permission is needed to search by voice.</string>
+    <string name="voice_search_busy">Voice recognition is busy. Please try again.</string>
+    <string name="voice_search_no_speech">I did not hear a song name. Please try again.</string>
+    <string name="voice_search_network">Voice recognition needs a connection right now. Please try again.</string>
+    <string name="voice_search_unavailable">Voice search is not available on this device.</string>
+    <string name="voice_search_language">Voice recognition does not support the selected language.</string>
+    <string name="voice_search_timeout">I did not hear the song name in time. Please try again.</string>
+    <string name="voice_search_audio">The microphone is not available right now.</string>
+    <string name="voice_search_error">Voice search could not hear you. Please try again.</string>
+</resources>
