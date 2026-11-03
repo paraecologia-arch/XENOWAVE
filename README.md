@@ -8,7 +8,26 @@ A Material 3 YouTube Music client & local music player for Android
 [![License](https://img.shields.io/github/license/paraecologia-arch/XENOWAVE)](https://www.gnu.org/licenses/gpl-3.0)
 [![Downloads](https://img.shields.io/github/downloads/paraecologia-arch/XENOWAVE/total)](https://github.com/paraecologia-arch/XENOWAVE/releases)
 
-[<img src="assets/badge_github.png" alt="Get it on GitHub" height="40">](https://github.com/paraecologia-arch/XENOWAVE/releases/latest)
+[<img src="assets/badge_github.png" alt="Get it on GitHub" height="40">](https://github.com/paraecologia-arch/XENOWAVE/releases)
+
+## Baixar e instalar gratuitamente
+
+**[Baixar o APK do XENOWAVE para Android](https://github.com/paraecologia-arch/XENOWAVE/releases)**
+
+1. Abra o lançamento mais recente e, em **Assets**, baixe o arquivo **XENOWAVE-0.10.1-beta.1-core.apk**.
+2. No celular, abra o APK e permita a instalação por esse navegador ou gerenciador de arquivos, se o Android solicitar.
+3. Conclua a instalação e abra o **XENOWAVE**.
+
+O download em Releases é gratuito e não exige conta no GitHub. O arquivo **Source code** é o código-fonte, não o instalador.
+Android 8 ou superior é recomendado; Android 7 não tem suporte oficial.
+
+Esta primeira versão é **beta**: compilação, verificações automáticas e assinatura são conferidas antes da publicação;
+a validação completa em celular ainda está pendente. A versão Core usa os codecs disponíveis no Android.
+
+Se você usa o antigo APK de testes com pacote `com.dd3boh.xenowave.debug`, a versão pública é instalada como outro app
+(`com.dd3boh.xenowave`). Exporte um backup pelo aplicativo de testes antes de migrar seus dados.
+
+O XENOWAVE é software livre sob a [GPL v3](./LICENSE), com código-fonte disponível neste repositório.
 
 > [!WARNING]
 > XENOWAVE is only available through the GitHub repository linked above. This app is not listed on the Play Store or any
