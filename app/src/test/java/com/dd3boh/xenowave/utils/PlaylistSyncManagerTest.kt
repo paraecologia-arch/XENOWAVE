@@ -150,6 +150,7 @@ class PlaylistSyncManagerTest {
     @Test
     fun editsMadeDuringSynchronizationRemainPendingAndAreSentOnTheNextPass() = runBlocking {
         add("new")
+        remote.songs += remote.song("external", "external-set")
         remote.afterAdd = {
             database.inTransaction { update(playlistEntityForSync("local")!!.copy(name = "Edited during request")) }
         }
@@ -159,6 +160,7 @@ class PlaylistSyncManagerTest {
         remote.afterAdd = null
         assertTrue(manager.syncPlaylist("local"))
         assertEquals("Edited during request", remote.title)
+        assertTrue(remote.songs.any { it.id == "external" })
         assertEquals(1, remote.addCalls)
     }
 
