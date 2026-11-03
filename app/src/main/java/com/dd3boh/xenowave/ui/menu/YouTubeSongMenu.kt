@@ -258,15 +258,9 @@ fun YouTubeSongMenu(
         AddToPlaylistDialog(
             navController = navController,
             songIds = null,
-            onPreAdd = { playlist ->
-                database.transaction {
+            onPreAdd = { _ ->
+                database.inTransaction {
                     insert(song.toMediaMetadata())
-                }
-
-                coroutineScope.launch(syncCoroutine) {
-                    playlist.playlist.browseId?.let { browseId ->
-                        YouTube.addToPlaylist(browseId, song.id)
-                    }
                 }
 
                 listOf(song.id)

@@ -124,10 +124,11 @@ fun YouTubePlaylistMenu(
                                             PlaylistSongMap(
                                                 songId = song.id,
                                                 playlistId = playlistEntity.id,
-                                                position = index
+                                                position = index,
+                                                setVideoId = song.setVideoId,
                                             )
                                         }
-                                        .forEach(::insert)
+                                        .forEach(::insertPlaylistMapFromSync)
                                 }
                             }
                         } else {
@@ -300,19 +301,15 @@ fun YouTubePlaylistMenu(
         AddToPlaylistDialog(
             navController = navController,
             songIds = null,
-            onPreAdd = { targetPlaylist ->
+            onPreAdd = { _ ->
                 val allSongs = songs
                     .ifEmpty {
-                        YouTube.playlist(targetPlaylist.id).completed().getOrNull()?.songs.orEmpty()
+                        YouTube.playlist(playlist.id).completed().getOrNull()?.songs.orEmpty()
                     }.map {
                         it.toMediaMetadata()
                     }
-                database.transaction {
+                database.inTransaction {
                     allSongs.forEach(::insert)
-                }
-
-                targetPlaylist.playlist.browseId?.let { playlistId ->
-                    YouTube.addPlaylistToPlaylist(playlistId, targetPlaylist.id)
                 }
 
                 allSongs.map { it.id }

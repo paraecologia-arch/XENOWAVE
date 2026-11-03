@@ -212,19 +212,9 @@ fun SongMenu(
                 title = R.string.remove_from_playlist
             ) {
                 database.transaction {
-                    move(playlistSong.map.playlistId, playlistSong.map.position, Int.MAX_VALUE)
-                    delete(playlistSong.map.copy(position = Int.MAX_VALUE))
+                    removePlaylistSongs(playlistSong.map.playlistId, setOf(playlistSong.map.id))
                 }
 
-                coroutineScope.launch {
-                    playlist?.playlist?.browseId?.let { playlistId ->
-                        if (playlistSong.map.setVideoId != null) {
-                            YouTube.removeFromPlaylist(
-                                playlistId, playlistSong.map.songId, playlistSong.map.setVideoId
-                            )
-                        }
-                    }
-                }
 
                 onDismiss()
             }
@@ -370,9 +360,6 @@ fun SongMenu(
             navController = navController,
             songIds = listOf(song.id),
             onPreAdd = { playlist ->
-                playlist.playlist.browseId?.let { browseId ->
-                    YouTube.addToPlaylist(browseId, song.id)
-                }
                 listOf(song.id)
             },
             onDismiss = { showChoosePlaylistDialog = false }
