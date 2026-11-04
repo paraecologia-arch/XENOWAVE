@@ -26,6 +26,7 @@ enum class UpdateFailure {
     SERVER,
     INVALID_METADATA,
     INSTALL,
+    STORAGE,
 }
 
 sealed interface DownloadOutcome {

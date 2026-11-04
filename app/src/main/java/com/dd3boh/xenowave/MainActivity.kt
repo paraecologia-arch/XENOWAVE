@@ -136,6 +136,7 @@ import com.dd3boh.xenowave.ui.component.rememberBottomSheetState
 import com.dd3boh.xenowave.ui.component.XenoWaveStartupGate
 import com.dd3boh.xenowave.ui.component.XenoWaveStartupSplash
 import com.dd3boh.xenowave.ui.component.shimmer.ShimmerTheme
+import com.dd3boh.xenowave.ui.dialog.UpdatePromptHost
 import com.dd3boh.xenowave.ui.menu.BottomSheetMenu
 import com.dd3boh.xenowave.ui.menu.MenuState
 import com.dd3boh.xenowave.ui.player.BottomSheetPlayer
@@ -194,6 +195,7 @@ import com.dd3boh.xenowave.utils.coilCoroutine
 import com.dd3boh.xenowave.utils.lmScannerCoroutine
 import com.dd3boh.xenowave.utils.rememberEnumPreference
 import com.dd3boh.xenowave.utils.rememberPreference
+import com.dd3boh.xenowave.update.UpdatePromptController
 import com.valentinilk.shimmer.LocalShimmerTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.collectLatest
@@ -375,6 +377,7 @@ class MainActivity : ComponentActivity() {
                 themeColor = themeColor
             ) {
                 Log.v(MAIN_TAG, "RC-2.1")
+                UpdatePromptHost(enabled = oobeStatus >= OOBE_VERSION)
                 val density = LocalDensity.current
                 val windowsInsets = WindowInsets.systemBars
                 val bottomInset = with(density) { windowsInsets.getBottom(density).toDp() }
@@ -1011,6 +1014,11 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        UpdatePromptController.onAppForeground(this)
     }
 
     private fun setSystemBarAppearance(isDark: Boolean) {

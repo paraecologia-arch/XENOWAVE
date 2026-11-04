@@ -191,7 +191,6 @@ val UpdateAvailableKey = booleanPreferencesKey("updateAvailable")
  */
 val AutoUpdateEnabledKey = booleanPreferencesKey("autoUpdateEnabled")
 val UpdateChannelKey = stringPreferencesKey("updateChannel")
-val UpdateAutoDownloadUnmeteredKey = booleanPreferencesKey("updateAutoDownloadUnmetered")
 val UpdatePhaseKey = stringPreferencesKey("updatePhase")
 val UpdateProgressKey = intPreferencesKey("updateProgress")
 val UpdateVersionCodeKey = intPreferencesKey("updateVersionCode")
@@ -204,6 +203,17 @@ val UpdateMetadataJsonKey = stringPreferencesKey("updateMetadataJson")
 val UpdatePendingVersionCodeKey = intPreferencesKey("updatePendingVersionCode")
 val UpdateInstallAttemptKey = longPreferencesKey("updateInstallAttempt")
 val UpdateErrorKey = stringPreferencesKey("updateError")
+val LastForegroundUpdateCheckKey = longPreferencesKey("lastForegroundUpdateCheck")
+
+/**
+ * Consent is bound to one exact target: versionCode + SHA-256 + application id.
+ * A boolean is intentionally not used, because it would authorise every future
+ * release that a worker happens to download.
+ */
+val UpdateConsentVersionCodeKey = intPreferencesKey("updateConsentVersionCode")
+val UpdateConsentSha256Key = stringPreferencesKey("updateConsentSha256")
+val UpdateConsentApplicationIdKey = stringPreferencesKey("updateConsentApplicationId")
+val UpdateConsentGrantedAtKey = longPreferencesKey("updateConsentGrantedAt")
 
 val LanguageCodeToName = mapOf(
     "af" to "Afrikaans",

@@ -17,11 +17,69 @@ class UpdatePolicyTest {
     }
 
     @Test
-    fun `automatic download respects the unmetered preference`() {
-        assertTrue(UpdatePolicy.shouldAutoDownload(true, true, false))
-        assertFalse(UpdatePolicy.shouldAutoDownload(false, true, false))
-        assertTrue(UpdatePolicy.shouldAutoDownload(false, true, forceDownload = true))
-        assertTrue(UpdatePolicy.shouldAutoDownload(false, unmeteredOnly = false, forceDownload = false))
+    fun `foreground checks are throttled separately from the background check`() {
+        val now = 100_000_000L
+        val recent = now - UpdatePolicy.FOREGROUND_CHECK_INTERVAL_MILLIS + 1
+        assertFalse(UpdatePolicy.isForegroundCheckDue(recent, now, force = false))
+        assertTrue(UpdatePolicy.isForegroundCheckDue(recent, now, force = true))
+        assertTrue(UpdatePolicy.isForegroundCheckDue(0L, now, force = false))
+        assertTrue(
+            UpdatePolicy.isForegroundCheckDue(
+                now - UpdatePolicy.FOREGROUND_CHECK_INTERVAL_MILLIS,
+                now,
+                force = false,
+            )
+        )
+    }
+
+    @Test
+    fun `consent is bound to one exact version sha and application id`() {
+        val status = UpdateStatus(
+            consentVersionCode = 73,
+            consentApkSha256 = "a".repeat(64),
+            consentApplicationId = "com.dd3boh.xenowave",
+        )
+
+        assertTrue(
+            UpdatePolicy.hasConsent(
+                status = status,
+                versionCode = 73,
+                sha256 = "a".repeat(64),
+                applicationId = "com.dd3boh.xenowave",
+            )
+        )
+        assertFalse(
+            UpdatePolicy.hasConsent(
+                status = status,
+                versionCode = 74,
+                sha256 = "a".repeat(64),
+                applicationId = "com.dd3boh.xenowave",
+            )
+        )
+        assertFalse(
+            UpdatePolicy.hasConsent(
+                status = status,
+                versionCode = 73,
+                sha256 = "b".repeat(64),
+                applicationId = "com.dd3boh.xenowave",
+            )
+        )
+        assertFalse(
+            UpdatePolicy.hasConsent(
+                status = status,
+                versionCode = 73,
+                sha256 = "a".repeat(64),
+                applicationId = "com.example.other",
+            )
+        )
+        assertFalse(
+            UpdatePolicy.hasConsent(
+                status = UpdateStatus(),
+                versionCode = 73,
+                sha256 = "a".repeat(64),
+                applicationId = "com.dd3boh.xenowave",
+            )
+        )
     }
 
     @Test
@@ -34,6 +92,7 @@ class UpdatePolicyTest {
                 targetVersionCode = 72,
                 musicActive = false,
                 canRequestPackageInstalls = false,
+                hasConsent = true,
             )
         )
         assertEquals(
@@ -44,6 +103,7 @@ class UpdatePolicyTest {
                 targetVersionCode = 72,
                 musicActive = true,
                 canRequestPackageInstalls = true,
+                hasConsent = true,
             )
         )
         assertEquals(
@@ -54,6 +114,22 @@ class UpdatePolicyTest {
                 targetVersionCode = 72,
                 musicActive = false,
                 canRequestPackageInstalls = true,
+                hasConsent = true,
+            )
+        )
+    }
+
+    @Test
+    fun `no consent never reaches the installer`() {
+        assertEquals(
+            InstallDecision.NeedsConsent,
+            UpdatePolicy.canStartInstall(
+                phase = UpdatePhase.READY_TO_INSTALL,
+                pendingVersionCode = null,
+                targetVersionCode = 72,
+                musicActive = false,
+                canRequestPackageInstalls = true,
+                hasConsent = false,
             )
         )
     }
@@ -68,6 +144,7 @@ class UpdatePolicyTest {
                 targetVersionCode = 72,
                 musicActive = false,
                 canRequestPackageInstalls = true,
+                hasConsent = true,
             )
         )
         assertEquals(
@@ -78,6 +155,7 @@ class UpdatePolicyTest {
                 targetVersionCode = 72,
                 musicActive = false,
                 canRequestPackageInstalls = true,
+                hasConsent = true,
             )
         )
     }

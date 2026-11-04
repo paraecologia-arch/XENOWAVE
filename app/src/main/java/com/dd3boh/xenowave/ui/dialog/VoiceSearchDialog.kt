@@ -80,6 +80,7 @@ fun VoiceSearchDialog(
     onDismiss: () -> Unit,
     onResult: (String) -> Unit,
 ) {
+    BlockingDialogEffect("voice-search")
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
     val languageTag = remember(configuration) {

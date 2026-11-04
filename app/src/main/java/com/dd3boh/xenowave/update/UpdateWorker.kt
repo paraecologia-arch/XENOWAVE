@@ -8,13 +8,10 @@ package com.dd3boh.xenowave.update
 
 import android.content.Context
 import android.media.AudioManager
-import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
 import android.os.Build
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.dd3boh.xenowave.constants.AutoUpdateEnabledKey
-import com.dd3boh.xenowave.constants.UpdateAutoDownloadUnmeteredKey
 import com.dd3boh.xenowave.constants.UpdateChannelKey
 import com.dd3boh.xenowave.utils.dataStore
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,10 +21,10 @@ import kotlinx.coroutines.launch
 import java.io.File
 
 /**
- * Single periodic entry point for update checks, downloads and installation.
+ * Entry point for update discovery, approved downloads and installation.
  *
- * WorkManager guarantees only one unique periodic work and one unique on-demand
- * work, so repeated app launches cannot create parallel pollers.
+ * WorkManager unique work names prevent parallel discovery, download and
+ * install jobs for the same app.
  */
 class UpdateWorker(
     appContext: Context,
@@ -41,9 +38,9 @@ class UpdateWorker(
         val preferences = context.dataStore.data.first()
         val autoEnabled = preferences[AutoUpdateEnabledKey] ?: true
         val forceCheck = inputData.getBoolean(KEY_FORCE_CHECK, false)
-        val forceDownload = inputData.getBoolean(KEY_FORCE_DOWNLOAD, false)
+        val downloadOnly = inputData.getBoolean(KEY_DOWNLOAD_ONLY, false)
         val installOnly = inputData.getBoolean(KEY_INSTALL_ONLY, false)
-        if (!autoEnabled && !forceCheck && !installOnly) return Result.success()
+        if (!autoEnabled && !forceCheck && !installOnly && !downloadOnly) return Result.success()
 
         val now = System.currentTimeMillis()
         val installedVersionCode = UpdateInfo.installedVersionCode(context)
@@ -63,11 +60,30 @@ class UpdateWorker(
         }
         status = recoverStaleInstallSession(context, status, now)
 
+        if (downloadOnly) {
+            if (status.phase == UpdatePhase.INSTALLING ||
+                status.phase == UpdatePhase.PENDING_USER_ACTION
+            ) {
+                return Result.success()
+            }
+            return downloadKnownUpdate(context, status, installedVersionCode)
+        }
+
         if (installOnly) {
             return finishKnownUpdate(context, status, installedVersionCode)
         }
 
-        if (!UpdatePolicy.isCheckDue(status.lastCheckMillis, now, forceCheck || forceDownload)) {
+        // A download or an installation in progress must not be replaced by a
+        // discovery run. Discovery never confirms a version on the user's behalf.
+        if (status.phase == UpdatePhase.DOWNLOADING ||
+            status.phase == UpdatePhase.READY_TO_INSTALL ||
+            status.phase == UpdatePhase.INSTALLING ||
+            status.phase == UpdatePhase.PENDING_USER_ACTION
+        ) {
+            return Result.success()
+        }
+
+        if (!UpdatePolicy.isCheckDue(status.lastCheckMillis, now, forceCheck)) {
             return finishKnownUpdate(context, status, installedVersionCode)
         }
 
@@ -75,20 +91,40 @@ class UpdateWorker(
         val channel = UpdateChannel.fromString(preferences[UpdateChannelKey]) ?: UpdateChannel.BETA
         val repository = UpdateRepository()
 
-        return when (val outcome = repository.checkForUpdate(
-            channel = channel,
-            installedVersionCode = installedVersionCode,
-            sdkInt = Build.VERSION.SDK_INT,
-        )) {
+        return when (val outcome = UpdateCheckGate.run {
+                repository.checkForUpdate(
+                    channel = channel,
+                    installedVersionCode = installedVersionCode,
+                    sdkInt = Build.VERSION.SDK_INT,
+                )
+            }) {
             UpdateCheckOutcome.UpToDate -> {
-                UpdateStatusStore.clearAvailable(context)
                 UpdateStatusStore.setLastCheck(context, now)
-                UpdateStatusStore.setPhase(context, UpdatePhase.IDLE)
+                val current = UpdateStatusStore.currentStatus(context)
+                if (hasAcceptedTarget(current)) {
+                    if (current.phase !in ACTIVE_PHASES) {
+                        UpdateStatusStore.setPhase(context, UpdatePhase.IDLE)
+                    }
+                } else {
+                    UpdateStatusStore.clearAvailable(context)
+                    UpdateStatusStore.setPhase(context, UpdatePhase.IDLE)
+                }
                 Result.success()
             }
 
             is UpdateCheckOutcome.Failed -> {
-                UpdateStatusStore.setPhase(context, UpdatePhase.FAILED, error = outcome.reason)
+                val current = UpdateStatusStore.currentStatus(context)
+                if (current.phase in ACTIVE_PHASES) {
+                    // A download or install owns the status.
+                } else if (hasAcceptedTarget(current)) {
+                    UpdateStatusStore.setPhase(context, UpdatePhase.IDLE)
+                } else {
+                    UpdateStatusStore.setPhase(
+                        context,
+                        UpdatePhase.FAILED,
+                        error = outcome.reason,
+                    )
+                }
                 if ((outcome.reason == UpdateFailure.NETWORK ||
                         outcome.reason == UpdateFailure.RATE_LIMITED) &&
                     runAttemptCount < MAX_ATTEMPTS
@@ -102,13 +138,13 @@ class UpdateWorker(
             is UpdateCheckOutcome.Available -> {
                 UpdateStatusStore.setAvailable(context, outcome.update)
                 UpdateStatusStore.setLastCheck(context, now)
-                processDownload(
-                    context = context,
-                    update = outcome.update,
-                    preferences = preferences,
-                    forceDownload = forceDownload,
-                    installedVersionCode = installedVersionCode,
-                )
+                // Discovery never downloads. The dedicated download work
+                // starts only after the user's "Atualizar" consent.
+                val current = UpdateStatusStore.currentStatus(context)
+                if (current.phase !in ACTIVE_PHASES) {
+                    UpdateStatusStore.setPhase(context, UpdatePhase.IDLE)
+                }
+                Result.success()
             }
         }
     }
@@ -140,29 +176,26 @@ class UpdateWorker(
     private suspend fun processDownload(
         context: Context,
         update: SelectedUpdate,
-        preferences: androidx.datastore.preferences.core.Preferences,
-        forceDownload: Boolean,
         installedVersionCode: Int,
     ): Result {
         val metadata = update.metadata
+        val current = UpdateStatusStore.currentStatus(context)
+        if (!UpdatePolicy.hasConsent(
+                status = current,
+                metadata = metadata,
+                applicationId = UpdateInfo.applicationId,
+            )
+        ) {
+            UpdateStatusStore.setPhase(context, UpdatePhase.IDLE)
+            return Result.success()
+        }
+
         val target = updateFile(context, metadata)
         val existingValid = target.isFile &&
             target.length() == metadata.sizeBytes &&
             runCatching { ApkVerifier.sha256(target) }.getOrNull() == metadata.sha256
 
         if (!existingValid) {
-            val unmeteredOnly = preferences[UpdateAutoDownloadUnmeteredKey] ?: true
-            if (!UpdatePolicy.shouldAutoDownload(
-                    unmeteredNetwork = isUnmeteredNetwork(context),
-                    unmeteredOnly = unmeteredOnly,
-                    forceDownload = forceDownload,
-                )
-            ) {
-                // Keep the update listed; the user can start the download explicitly.
-                UpdateStatusStore.setPhase(context, UpdatePhase.IDLE)
-                return Result.success()
-            }
-
             UpdateStatusStore.setPhase(context, UpdatePhase.DOWNLOADING, progress = 0)
             val progress = MutableStateFlow(0)
             val outcome = coroutineScope {
@@ -177,16 +210,18 @@ class UpdateWorker(
             }
 
             if (outcome is DownloadOutcome.Failed) {
+                val failure = when (outcome.reason) {
+                    DownloadFailure.NETWORK -> UpdateFailure.NETWORK
+                    DownloadFailure.IO,
+                    DownloadFailure.TOO_LARGE -> UpdateFailure.STORAGE
+
+                    DownloadFailure.SIZE_MISMATCH,
+                    DownloadFailure.HASH_MISMATCH -> UpdateFailure.INVALID_METADATA
+                }
                 UpdateStatusStore.setPhase(
                     context = context,
                     phase = UpdatePhase.FAILED,
-                    error = if (outcome.reason == DownloadFailure.NETWORK ||
-                        outcome.reason == DownloadFailure.TOO_LARGE
-                    ) {
-                        UpdateFailure.NETWORK
-                    } else {
-                        UpdateFailure.INVALID_METADATA
-                    },
+                    error = failure,
                 )
                 return if (outcome.reason == DownloadFailure.NETWORK &&
                     runAttemptCount < MAX_ATTEMPTS
@@ -245,7 +280,19 @@ class UpdateWorker(
             targetVersionCode = metadata.versionCode,
             musicActive = isMusicActive(context),
             canRequestPackageInstalls = installer.canRequestPackageInstalls(),
+            hasConsent = UpdatePolicy.hasConsent(
+                status = status,
+                metadata = metadata,
+                applicationId = UpdateInfo.applicationId,
+            ),
         )) {
+            InstallDecision.NeedsConsent -> {
+                // The user has not accepted this exact target. Keep the update
+                // listed, but never create a PackageInstaller session.
+                UpdateStatusStore.setPhase(context, UpdatePhase.IDLE)
+                Result.success()
+            }
+
             InstallDecision.NeedsPermission -> {
                 UpdateStatusStore.setPhase(context, UpdatePhase.READY_TO_INSTALL)
                 UpdateNotifications.showNeedsPermission(context)
@@ -253,7 +300,8 @@ class UpdateWorker(
             }
 
             is InstallDecision.Defer -> {
-                // Do not interrupt playback; the periodic worker will try again.
+                // Do not interrupt playback; retry after the user pauses it.
+                UpdateStatusStore.setPhase(context, UpdatePhase.WAITING_FOR_MUSIC)
                 if (runAttemptCount < MAX_ATTEMPTS) Result.retry() else Result.success()
             }
 
@@ -286,6 +334,37 @@ class UpdateWorker(
     }
 
     /**
+     * Starts the download after the user accepted this exact target. It reuses
+     * the persisted release metadata so a rate-limited GitHub check cannot stop
+     * an update that was already authorised.
+     */
+    private suspend fun downloadKnownUpdate(
+        context: Context,
+        status: UpdateStatus,
+        installedVersionCode: Int,
+    ): Result {
+        val metadataJson = status.metadataJson ?: return Result.success()
+        val metadata = (UpdateMetadataParser.parse(metadataJson, UpdateInfo.applicationId)
+            as? UpdateMetadataResult.Valid)?.metadata ?: return Result.success()
+        if (metadata.versionCode <= installedVersionCode) return Result.success()
+        if (!UpdatePolicy.hasConsent(
+                status = status,
+                metadata = metadata,
+                applicationId = UpdateInfo.applicationId,
+            )
+        ) {
+            UpdateStatusStore.setPhase(context, UpdatePhase.IDLE)
+            return Result.success()
+        }
+        val downloadUrl = status.downloadUrl ?: return Result.success()
+        return processDownload(
+            context = context,
+            update = SelectedUpdate(metadata, downloadUrl),
+            installedVersionCode = installedVersionCode,
+        )
+    }
+
+    /**
      * When the check itself is not due, still try to finish an update that was
      * already downloaded and verified (for example after the user granted the
      * install permission).
@@ -300,6 +379,14 @@ class UpdateWorker(
             as? UpdateMetadataResult.Valid)?.metadata ?: return Result.success()
         if (metadata.versionCode <= installedVersionCode) return Result.success()
         if (status.apkName != metadata.apkName) return Result.success()
+        if (!UpdatePolicy.hasConsent(
+                status = status,
+                metadata = metadata,
+                applicationId = UpdateInfo.applicationId,
+            )
+        ) {
+            return Result.success()
+        }
 
         val target = updateFile(context, metadata)
         val valid = target.isFile &&
@@ -324,26 +411,39 @@ class UpdateWorker(
     private fun updateFile(context: Context, metadata: UpdateMetadata): File =
         File(File(context.filesDir, UPDATES_DIRECTORY), metadata.apkName)
 
-    private fun isUnmeteredNetwork(context: Context): Boolean {
-        val manager = context.getSystemService(ConnectivityManager::class.java) ?: return false
-        val capabilities = manager.getNetworkCapabilities(manager.activeNetwork) ?: return false
-        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
-    }
-
     private fun isMusicActive(context: Context): Boolean {
         val audio = context.getSystemService(AudioManager::class.java) ?: return false
         return audio.isMusicActive
     }
 
+    private fun hasAcceptedTarget(status: UpdateStatus): Boolean =
+        status.availableVersionCode?.let { versionCode ->
+            status.apkSha256?.let { sha256 ->
+                UpdatePolicy.hasConsent(
+                    status = status,
+                    versionCode = versionCode,
+                    sha256 = sha256,
+                    applicationId = UpdateInfo.applicationId,
+                )
+            }
+        } == true
+
     companion object {
         const val KEY_FORCE_CHECK = "forceCheck"
-        const val KEY_FORCE_DOWNLOAD = "forceDownload"
+        const val KEY_DOWNLOAD_ONLY = "downloadOnly"
         const val KEY_INSTALL_ONLY = "installOnly"
         const val UPDATES_DIRECTORY = "updates"
 
         private const val MAX_ATTEMPTS = 4
         private const val INSTALLING_STALE_MILLIS = 15L * 60L * 1000L
         private const val PENDING_STALE_MILLIS = 24L * 60L * 60L * 1000L
+
+        private val ACTIVE_PHASES = setOf(
+            UpdatePhase.DOWNLOADING,
+            UpdatePhase.READY_TO_INSTALL,
+            UpdatePhase.WAITING_FOR_MUSIC,
+            UpdatePhase.INSTALLING,
+            UpdatePhase.PENDING_USER_ACTION,
+        )
     }
 }

@@ -50,7 +50,6 @@ import androidx.navigation.NavController
 import com.dd3boh.xenowave.R
 import com.dd3boh.xenowave.constants.AutoUpdateEnabledKey
 import com.dd3boh.xenowave.constants.TopBarInsets
-import com.dd3boh.xenowave.constants.UpdateAutoDownloadUnmeteredKey
 import com.dd3boh.xenowave.constants.UpdateChannelKey
 import com.dd3boh.xenowave.ui.component.ColumnWithContentPadding
 import com.dd3boh.xenowave.ui.component.PreferenceGroupTitle
@@ -68,14 +67,14 @@ import com.dd3boh.xenowave.update.UpdateInstallCoordinator
 import com.dd3boh.xenowave.update.UpdateInstaller
 import com.dd3boh.xenowave.update.UpdateNotifications
 import com.dd3boh.xenowave.update.UpdatePhase
+import com.dd3boh.xenowave.update.UpdatePolicy
+import com.dd3boh.xenowave.update.UpdatePromptController
 import com.dd3boh.xenowave.update.UpdateScheduler
 import com.dd3boh.xenowave.update.UpdateStatus
 import com.dd3boh.xenowave.update.UpdateStatusStore
-import com.dd3boh.xenowave.update.UpdateWorker
 import com.dd3boh.xenowave.utils.dataStore
 import com.dd3boh.xenowave.utils.rememberPreference
 import kotlinx.coroutines.flow.map
-import java.io.File
 import java.text.DateFormat
 import java.util.Date
 
@@ -97,8 +96,6 @@ fun UpdateSettingsScreen(
         rememberPreference(AutoUpdateEnabledKey, defaultValue = true)
     val (channelName, setChannelName) =
         rememberPreference(UpdateChannelKey, defaultValue = UpdateChannel.BETA.name)
-    val (unmeteredOnly, setUnmeteredOnly) =
-        rememberPreference(UpdateAutoDownloadUnmeteredKey, defaultValue = true)
     val channel = UpdateChannel.fromString(channelName) ?: UpdateChannel.BETA
 
     val status by remember {
@@ -144,12 +141,19 @@ fun UpdateSettingsScreen(
 
     val busy = status.phase == UpdatePhase.CHECKING ||
         status.phase == UpdatePhase.DOWNLOADING ||
-        status.phase == UpdatePhase.INSTALLING
-    val downloadedApk = remember(status.apkName, status.availableVersionCode) {
-        status.apkName?.let {
-            File(File(context.filesDir, UpdateWorker.UPDATES_DIRECTORY), it).isFile
-        } == true
-    }
+        status.phase == UpdatePhase.WAITING_FOR_MUSIC ||
+        status.phase == UpdatePhase.INSTALLING ||
+        status.phase == UpdatePhase.PENDING_USER_ACTION
+    val consent = status.availableVersionCode?.let { versionCode ->
+        status.apkSha256?.let { sha256 ->
+            UpdatePolicy.hasConsent(
+                status = status,
+                versionCode = versionCode,
+                sha256 = sha256,
+                applicationId = UpdateInfo.applicationId,
+            )
+        }
+    } == true
 
     ColumnWithContentPadding(
         modifier = Modifier.fillMaxHeight(),
@@ -231,25 +235,146 @@ fun UpdateSettingsScreen(
                         ) {
                             Text(stringResource(R.string.update_check_now))
                         }
-                        if (status.updateAvailable && !downloadedApk) {
-                            OutlinedButton(
-                                onClick = {
-                                    UpdateScheduler.checkNow(context, forceDownload = true)
-                                },
+                        if (status.updateAvailable &&
+                            status.availableVersionCode != null &&
+                            !consent
+                        ) {
+                            Button(
+                                onClick = { UpdatePromptController.approve(context, status) },
                                 enabled = !busy,
                             ) {
-                                Text(stringResource(R.string.update_download_now))
+                                Text(stringResource(R.string.update_prompt_update))
                             }
                         }
                     }
 
-                    if (downloadedApk) {
+                    if (consent && status.updateAvailable) {
                         Spacer(Modifier.height(8.dp))
-                        Button(
-                            onClick = { UpdateScheduler.installNow(context) },
-                            enabled = canRequestInstalls && !busy,
-                        ) {
-                            Text(stringResource(R.string.update_install_now))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            when (status.phase) {
+                                UpdatePhase.IDLE, UpdatePhase.FAILED -> {
+                                    Button(
+                                        onClick = { UpdatePromptController.retry(context) },
+                                        enabled = !busy,
+                                    ) {
+                                        Text(stringResource(R.string.update_prompt_retry))
+                                    }
+                                    OutlinedButton(
+                                        onClick = {
+                                            UpdatePromptController.cancel(
+                                                context,
+                                                status.availableVersionCode,
+                                            )
+                                        },
+                                    ) {
+                                        Text(stringResource(R.string.update_prompt_cancel))
+                                    }
+                                }
+
+                                UpdatePhase.DOWNLOADING -> {
+                                    Button(
+                                        onClick = { UpdatePromptController.retry(context) },
+                                    ) {
+                                        Text(stringResource(R.string.update_prompt_retry))
+                                    }
+                                    OutlinedButton(
+                                        onClick = {
+                                            UpdatePromptController.cancel(
+                                                context,
+                                                status.availableVersionCode,
+                                            )
+                                        },
+                                    ) {
+                                        Text(stringResource(R.string.update_prompt_cancel))
+                                    }
+                                }
+
+                                UpdatePhase.READY_TO_INSTALL -> {
+                                    Button(
+                                        onClick = { UpdateScheduler.installNow(context) },
+                                        enabled = canRequestInstalls,
+                                    ) {
+                                        Text(stringResource(R.string.update_install_now))
+                                    }
+                                    OutlinedButton(
+                                        onClick = {
+                                            UpdatePromptController.cancel(
+                                                context,
+                                                status.availableVersionCode,
+                                            )
+                                        },
+                                    ) {
+                                        Text(stringResource(R.string.update_prompt_cancel))
+                                    }
+                                }
+
+                                UpdatePhase.PENDING_USER_ACTION -> {
+                                    Button(
+                                        onClick = {
+                                            val pending = pendingConfirmation
+                                            if (pending != null) {
+                                                runCatching {
+                                                    context.startActivity(
+                                                        pending.intent.addFlags(
+                                                            Intent.FLAG_ACTIVITY_NEW_TASK
+                                                        )
+                                                    )
+                                                }
+                                                UpdateInstallCoordinator.consume()
+                                            } else {
+                                                UpdateScheduler.installNow(context)
+                                            }
+                                        },
+                                    ) {
+                                        Text(stringResource(R.string.update_prompt_confirm))
+                                    }
+                                    OutlinedButton(
+                                        onClick = {
+                                            UpdatePromptController.cancel(
+                                                context,
+                                                status.availableVersionCode,
+                                            )
+                                        },
+                                    ) {
+                                        Text(stringResource(R.string.update_prompt_cancel))
+                                    }
+                                }
+
+                                UpdatePhase.WAITING_FOR_MUSIC -> {
+                                    Button(
+                                        onClick = { UpdatePromptController.retry(context) },
+                                    ) {
+                                        Text(stringResource(R.string.update_prompt_retry))
+                                    }
+                                    OutlinedButton(
+                                        onClick = {
+                                            UpdatePromptController.cancel(
+                                                context,
+                                                status.availableVersionCode,
+                                            )
+                                        },
+                                    ) {
+                                        Text(stringResource(R.string.update_prompt_cancel))
+                                    }
+                                }
+
+                                UpdatePhase.INSTALLING -> {
+                                    OutlinedButton(
+                                        onClick = {
+                                            UpdatePromptController.cancel(
+                                                context,
+                                                status.availableVersionCode,
+                                            )
+                                        },
+                                    ) {
+                                        Text(stringResource(R.string.update_prompt_cancel))
+                                    }
+                                }
+
+                                UpdatePhase.CHECKING,
+                                UpdatePhase.INSTALLED,
+                                -> Unit
+                            }
                         }
                     }
 
@@ -295,13 +420,6 @@ fun UpdateSettingsScreen(
                         setAutoUpdateEnabled(enabled)
                         UpdateScheduler.setAutoUpdateEnabled(context, enabled)
                     },
-                )
-                SwitchPreference(
-                    title = { Text(stringResource(R.string.update_auto_download)) },
-                    description = stringResource(R.string.update_auto_download_description),
-                    icon = { XenoIcon(XenoSystemIcons.CloudDownload, contentDescription = null) },
-                    checked = unmeteredOnly,
-                    onCheckedChange = { enabled -> setUnmeteredOnly(enabled) },
                 )
                 ListPreference(
                     title = { Text(stringResource(R.string.update_channel)) },
@@ -363,6 +481,7 @@ private fun statusText(status: UpdateStatus): String = when (status.phase) {
         stringResource(R.string.update_downloading, status.progress.coerceIn(0, 100))
 
     UpdatePhase.READY_TO_INSTALL -> stringResource(R.string.update_ready)
+    UpdatePhase.WAITING_FOR_MUSIC -> stringResource(R.string.update_waiting_music_status)
     UpdatePhase.INSTALLING -> stringResource(R.string.update_installing)
     UpdatePhase.PENDING_USER_ACTION -> stringResource(R.string.update_pending_user_action)
     UpdatePhase.INSTALLED -> stringResource(R.string.update_installed)
@@ -373,6 +492,7 @@ private fun statusText(status: UpdateStatus): String = when (status.phase) {
             UpdateFailure.SERVER -> R.string.update_server_error
             UpdateFailure.INVALID_METADATA -> R.string.update_invalid
             UpdateFailure.INSTALL -> R.string.update_error_install
+            UpdateFailure.STORAGE -> R.string.update_storage_error
             null -> R.string.update_failed
         }
     )

@@ -4,6 +4,10 @@ import androidx.datastore.preferences.core.mutablePreferencesOf
 import com.dd3boh.xenowave.constants.LastUpdateCheckKey
 import com.dd3boh.xenowave.constants.UpdateApkNameKey
 import com.dd3boh.xenowave.constants.UpdateAvailableKey
+import com.dd3boh.xenowave.constants.UpdateConsentApplicationIdKey
+import com.dd3boh.xenowave.constants.UpdateConsentGrantedAtKey
+import com.dd3boh.xenowave.constants.UpdateConsentSha256Key
+import com.dd3boh.xenowave.constants.UpdateConsentVersionCodeKey
 import com.dd3boh.xenowave.constants.UpdateErrorKey
 import com.dd3boh.xenowave.constants.UpdatePhaseKey
 import com.dd3boh.xenowave.constants.UpdateProgressKey
@@ -23,6 +27,9 @@ class UpdateStatusStoreTest {
         assertEquals(0, status.progress)
         assertEquals(false, status.updateAvailable)
         assertNull(status.availableVersionCode)
+        assertNull(status.consentVersionCode)
+        assertNull(status.consentApkSha256)
+        assertNull(status.consentApplicationId)
         assertNull(status.error)
         assertEquals(0L, status.lastCheckMillis)
     }
@@ -49,6 +56,22 @@ class UpdateStatusStoreTest {
         assertEquals("XENOWAVE-0.10.2-beta.1-core.apk", status.apkName)
         assertEquals(123_456L, status.lastCheckMillis)
         assertEquals(UpdateFailure.NETWORK, status.error)
+    }
+
+    @Test
+    fun `reads consent bound to a single target`() {
+        val preferences = mutablePreferencesOf(
+            UpdateConsentVersionCodeKey to 73,
+            UpdateConsentSha256Key to "a".repeat(64),
+            UpdateConsentApplicationIdKey to "com.dd3boh.xenowave",
+            UpdateConsentGrantedAtKey to 987_654L,
+        )
+
+        val status = UpdateStatusStore.read(preferences)
+        assertEquals(73, status.consentVersionCode)
+        assertEquals("a".repeat(64), status.consentApkSha256)
+        assertEquals("com.dd3boh.xenowave", status.consentApplicationId)
+        assertEquals(987_654L, status.consentGrantedAtMillis)
     }
 
     @Test

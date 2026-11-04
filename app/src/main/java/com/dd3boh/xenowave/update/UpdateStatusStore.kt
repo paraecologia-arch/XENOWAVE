@@ -15,10 +15,15 @@ import androidx.datastore.preferences.core.edit
 import com.dd3boh.xenowave.BuildConfig
 import com.dd3boh.xenowave.constants.LastUpdateCheckKey
 import com.dd3boh.xenowave.constants.LastVersionKey
+import com.dd3boh.xenowave.constants.LastForegroundUpdateCheckKey
 import com.dd3boh.xenowave.constants.UpdateApkNameKey
 import com.dd3boh.xenowave.constants.UpdateApkSha256Key
 import com.dd3boh.xenowave.constants.UpdateApkSizeKey
 import com.dd3boh.xenowave.constants.UpdateAvailableKey
+import com.dd3boh.xenowave.constants.UpdateConsentApplicationIdKey
+import com.dd3boh.xenowave.constants.UpdateConsentGrantedAtKey
+import com.dd3boh.xenowave.constants.UpdateConsentSha256Key
+import com.dd3boh.xenowave.constants.UpdateConsentVersionCodeKey
 import com.dd3boh.xenowave.constants.UpdateDownloadUrlKey
 import com.dd3boh.xenowave.constants.UpdateErrorKey
 import com.dd3boh.xenowave.constants.UpdateInstallAttemptKey
@@ -44,6 +49,10 @@ data class UpdateStatus(
     val metadataJson: String? = null,
     val pendingVersionCode: Int? = null,
     val installAttemptMillis: Long = 0L,
+    val consentVersionCode: Int? = null,
+    val consentApkSha256: String? = null,
+    val consentApplicationId: String? = null,
+    val consentGrantedAtMillis: Long = 0L,
     val error: UpdateFailure? = null,
     val lastCheckMillis: Long = 0L,
 )
@@ -64,6 +73,10 @@ object UpdateStatusStore {
         metadataJson = preferences[UpdateMetadataJsonKey],
         pendingVersionCode = preferences[UpdatePendingVersionCodeKey]?.takeIf { it > 0 },
         installAttemptMillis = preferences[UpdateInstallAttemptKey] ?: 0L,
+        consentVersionCode = preferences[UpdateConsentVersionCodeKey]?.takeIf { it > 0 },
+        consentApkSha256 = preferences[UpdateConsentSha256Key],
+        consentApplicationId = preferences[UpdateConsentApplicationIdKey],
+        consentGrantedAtMillis = preferences[UpdateConsentGrantedAtKey] ?: 0L,
         error = UpdateFailure.entries.firstOrNull {
             it.name == preferences[UpdateErrorKey]
         },
@@ -96,6 +109,20 @@ object UpdateStatusStore {
     suspend fun setAvailable(context: Context, update: SelectedUpdate) {
         val metadata = update.metadata
         edit(context) {
+            val previousVersion = it[UpdateVersionCodeKey]
+            val previousSha = it[UpdateApkSha256Key]
+            val sameTarget = previousVersion == metadata.versionCode &&
+                previousSha?.equals(metadata.sha256, ignoreCase = true) == true
+            val phase = UpdatePhase.entries.firstOrNull { candidate ->
+                candidate.name == it[UpdatePhaseKey]
+            }
+            val targetInProgress = phase == UpdatePhase.DOWNLOADING ||
+                phase == UpdatePhase.READY_TO_INSTALL ||
+                phase == UpdatePhase.INSTALLING ||
+                phase == UpdatePhase.PENDING_USER_ACTION
+            if (!sameTarget && !targetInProgress) {
+                clearConsent(it)
+            }
             it[UpdateAvailableKey] = true
             it[UpdateVersionCodeKey] = metadata.versionCode
             it[UpdateVersionNameKey] = metadata.versionName
@@ -120,6 +147,7 @@ object UpdateStatusStore {
             it.remove(UpdateMetadataJsonKey)
             it.remove(UpdatePendingVersionCodeKey)
             it.remove(UpdateInstallAttemptKey)
+            clearConsent(it)
             it[UpdateProgressKey] = 0
             if (it[UpdatePhaseKey] != UpdatePhase.INSTALLED.name) {
                 it[UpdatePhaseKey] = UpdatePhase.IDLE.name
@@ -129,6 +157,10 @@ object UpdateStatusStore {
 
     suspend fun setLastCheck(context: Context, timestampMillis: Long) {
         edit(context) { it[LastUpdateCheckKey] = timestampMillis }
+    }
+
+    suspend fun setLastForegroundCheck(context: Context, timestampMillis: Long) {
+        edit(context) { it[LastForegroundUpdateCheckKey] = timestampMillis }
     }
 
     suspend fun setPendingVersion(context: Context, versionCode: Int) {
@@ -146,8 +178,46 @@ object UpdateStatusStore {
         edit(context) { it[UpdateInstallAttemptKey] = timestampMillis }
     }
 
+    suspend fun grantConsent(
+        context: Context,
+        versionCode: Int,
+        sha256: String,
+        applicationId: String,
+        grantedAtMillis: Long = System.currentTimeMillis(),
+    ) {
+        edit(context) {
+            it[UpdateConsentVersionCodeKey] = versionCode
+            it[UpdateConsentSha256Key] = sha256.lowercase()
+            it[UpdateConsentApplicationIdKey] = applicationId
+            it[UpdateConsentGrantedAtKey] = grantedAtMillis
+        }
+    }
+
+    /**
+     * Revokes only the authorisation for this exact target. A prompt for a
+     * newer release must never cancel a different accepted target by accident.
+     */
+    suspend fun revokeConsent(context: Context, versionCode: Int, sha256: String) {
+        edit(context) {
+            val sameTarget = it[UpdateConsentVersionCodeKey] == versionCode &&
+                it[UpdateConsentSha256Key]?.equals(sha256, ignoreCase = true) == true
+            if (sameTarget) clearConsent(it)
+        }
+    }
+
+    suspend fun clearConsent(context: Context) {
+        edit(context) { clearConsent(it) }
+    }
+
     suspend fun currentStatus(context: Context): UpdateStatus =
         read(context.dataStore.data.first())
+
+    private fun clearConsent(preferences: MutablePreferences) {
+        preferences.remove(UpdateConsentVersionCodeKey)
+        preferences.remove(UpdateConsentSha256Key)
+        preferences.remove(UpdateConsentApplicationIdKey)
+        preferences.remove(UpdateConsentGrantedAtKey)
+    }
 
     private suspend fun edit(context: Context, block: suspend (MutablePreferences) -> Unit) {
         context.dataStore.edit(block)

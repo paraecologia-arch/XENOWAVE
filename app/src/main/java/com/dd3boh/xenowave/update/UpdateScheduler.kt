@@ -24,6 +24,7 @@ import java.util.concurrent.TimeUnit
 object UpdateScheduler {
     const val PERIODIC_WORK_NAME = "xenowave-update-periodic"
     const val ONE_TIME_WORK_NAME = "xenowave-update-once"
+    const val DOWNLOAD_WORK_NAME = "xenowave-update-download"
     const val INSTALL_WORK_NAME = "xenowave-update-install"
 
     private const val PERIOD_HOURS = 12L
@@ -37,37 +38,51 @@ object UpdateScheduler {
             return
         }
         enqueuePeriodic(context)
-        enqueueOneTime(
-            context,
-            forceDownload = false,
-            forceCheck = false,
-            replaceExisting = false,
-        )
     }
 
     fun setAutoUpdateEnabled(context: Context, enabled: Boolean) {
         if (!UpdateInfo.isSupported) return
         if (enabled) {
             enqueuePeriodic(context)
-            enqueueOneTime(
-                context,
-                forceDownload = false,
-                forceCheck = false,
-                replaceExisting = false,
-            )
         } else {
             cancelPeriodic(context)
             WorkManager.getInstance(context).cancelUniqueWork(ONE_TIME_WORK_NAME)
         }
     }
 
-    fun checkNow(context: Context, forceDownload: Boolean = false) {
+    /**
+     * Manual verification. It bypasses the foreground/periodic cooldown but
+     * never starts a download by itself.
+     */
+    fun checkNow(context: Context) {
         if (!UpdateInfo.isSupported) return
         enqueueOneTime(
             context,
-            forceDownload = forceDownload,
             forceCheck = true,
             replaceExisting = true,
+        )
+    }
+
+    /**
+     * Heavy work requested by an explicit "Update" tap. The worker validates
+     * the persisted consent for versionCode + SHA-256 before opening any file
+     * or PackageInstaller session.
+     */
+    fun downloadApproved(context: Context) {
+        if (!UpdateInfo.isSupported) return
+        val request = OneTimeWorkRequestBuilder<UpdateWorker>()
+            .setInputData(workDataOf(UpdateWorker.KEY_DOWNLOAD_ONLY to true))
+            .setConstraints(networkOnlyConstraints())
+            .setBackoffCriteria(
+                BackoffPolicy.EXPONENTIAL,
+                BACKOFF_MINUTES,
+                TimeUnit.MINUTES,
+            )
+            .build()
+        WorkManager.getInstance(context).enqueueUniqueWork(
+            DOWNLOAD_WORK_NAME,
+            ExistingWorkPolicy.REPLACE,
+            request,
         )
     }
 
@@ -88,6 +103,14 @@ object UpdateScheduler {
         )
     }
 
+    fun cancelApprovedUpdate(context: Context) {
+        if (!UpdateInfo.isSupported) return
+        WorkManager.getInstance(context).apply {
+            cancelUniqueWork(DOWNLOAD_WORK_NAME)
+            cancelUniqueWork(INSTALL_WORK_NAME)
+        }
+    }
+
     private fun enqueuePeriodic(context: Context) {
         val request = PeriodicWorkRequestBuilder<UpdateWorker>(PERIOD_HOURS, TimeUnit.HOURS)
             .setConstraints(defaultConstraints())
@@ -106,7 +129,6 @@ object UpdateScheduler {
 
     private fun enqueueOneTime(
         context: Context,
-        forceDownload: Boolean,
         forceCheck: Boolean,
         replaceExisting: Boolean,
     ) {
@@ -114,10 +136,9 @@ object UpdateScheduler {
             .setInputData(
                 workDataOf(
                     UpdateWorker.KEY_FORCE_CHECK to forceCheck,
-                    UpdateWorker.KEY_FORCE_DOWNLOAD to forceDownload,
                 )
             )
-            .setConstraints(defaultConstraints())
+            .setConstraints(networkOnlyConstraints())
             .setBackoffCriteria(
                 BackoffPolicy.EXPONENTIAL,
                 BACKOFF_MINUTES,
@@ -139,5 +160,10 @@ object UpdateScheduler {
         Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .setRequiresBatteryNotLow(true)
+            .build()
+
+    private fun networkOnlyConstraints(): Constraints =
+        Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
 }
