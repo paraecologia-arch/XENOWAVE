@@ -25,7 +25,12 @@ import com.dd3boh.xenowave.constants.UpdateConsentGrantedAtKey
 import com.dd3boh.xenowave.constants.UpdateConsentSha256Key
 import com.dd3boh.xenowave.constants.UpdateConsentVersionCodeKey
 import com.dd3boh.xenowave.constants.UpdateDownloadUrlKey
+import com.dd3boh.xenowave.constants.UpdateDeltaUrlsKey
+import com.dd3boh.xenowave.constants.UpdateArtifactKindKey
+import com.dd3boh.xenowave.constants.UpdateDownloadSizeKey
+import com.dd3boh.xenowave.constants.UpdateEconomyPercentKey
 import com.dd3boh.xenowave.constants.UpdateErrorKey
+import com.dd3boh.xenowave.constants.UpdateFailedDeltaKey
 import com.dd3boh.xenowave.constants.UpdateInstallAttemptKey
 import com.dd3boh.xenowave.constants.UpdateMetadataJsonKey
 import com.dd3boh.xenowave.constants.UpdatePendingVersionCodeKey
@@ -35,6 +40,7 @@ import com.dd3boh.xenowave.constants.UpdateVersionCodeKey
 import com.dd3boh.xenowave.constants.UpdateVersionNameKey
 import com.dd3boh.xenowave.utils.dataStore
 import kotlinx.coroutines.flow.first
+import org.json.JSONObject
 
 data class UpdateStatus(
     val phase: UpdatePhase = UpdatePhase.IDLE,
@@ -46,6 +52,7 @@ data class UpdateStatus(
     val apkSizeBytes: Long? = null,
     val apkSha256: String? = null,
     val downloadUrl: String? = null,
+    val deltaUrlsJson: String? = null,
     val metadataJson: String? = null,
     val pendingVersionCode: Int? = null,
     val installAttemptMillis: Long = 0L,
@@ -53,6 +60,10 @@ data class UpdateStatus(
     val consentApkSha256: String? = null,
     val consentApplicationId: String? = null,
     val consentGrantedAtMillis: Long = 0L,
+    val artifactKind: String? = null,
+    val downloadSizeBytes: Long? = null,
+    val economyPercent: Int? = null,
+    val failedDeltaId: String? = null,
     val error: UpdateFailure? = null,
     val lastCheckMillis: Long = 0L,
 )
@@ -70,6 +81,7 @@ object UpdateStatusStore {
         apkSizeBytes = preferences[UpdateApkSizeKey],
         apkSha256 = preferences[UpdateApkSha256Key],
         downloadUrl = preferences[UpdateDownloadUrlKey],
+        deltaUrlsJson = preferences[UpdateDeltaUrlsKey],
         metadataJson = preferences[UpdateMetadataJsonKey],
         pendingVersionCode = preferences[UpdatePendingVersionCodeKey]?.takeIf { it > 0 },
         installAttemptMillis = preferences[UpdateInstallAttemptKey] ?: 0L,
@@ -77,6 +89,10 @@ object UpdateStatusStore {
         consentApkSha256 = preferences[UpdateConsentSha256Key],
         consentApplicationId = preferences[UpdateConsentApplicationIdKey],
         consentGrantedAtMillis = preferences[UpdateConsentGrantedAtKey] ?: 0L,
+        artifactKind = preferences[UpdateArtifactKindKey],
+        downloadSizeBytes = preferences[UpdateDownloadSizeKey],
+        economyPercent = preferences[UpdateEconomyPercentKey],
+        failedDeltaId = preferences[UpdateFailedDeltaKey],
         error = UpdateFailure.entries.firstOrNull {
             it.name == preferences[UpdateErrorKey]
         },
@@ -122,7 +138,11 @@ object UpdateStatusStore {
                 phase == UpdatePhase.PENDING_USER_ACTION
             if (!sameTarget && !targetInProgress) {
                 clearConsent(it)
+                it.remove(UpdateFailedDeltaKey)
             }
+            it.remove(UpdateArtifactKindKey)
+            it.remove(UpdateDownloadSizeKey)
+            it.remove(UpdateEconomyPercentKey)
             it[UpdateAvailableKey] = true
             it[UpdateVersionCodeKey] = metadata.versionCode
             it[UpdateVersionNameKey] = metadata.versionName
@@ -131,6 +151,15 @@ object UpdateStatusStore {
             it[UpdateApkSizeKey] = metadata.sizeBytes
             it[UpdateApkSha256Key] = metadata.sha256
             it[UpdateDownloadUrlKey] = update.downloadUrl
+            if (update.deltas.isEmpty()) {
+                it.remove(UpdateDeltaUrlsKey)
+            } else {
+                it[UpdateDeltaUrlsKey] = JSONObject().apply {
+                    update.deltas.forEach { delta ->
+                        put(delta.metadata.patchName, delta.downloadUrl)
+                    }
+                }.toString()
+            }
             it[UpdateMetadataJsonKey] = metadata.toJsonString()
         }
     }
@@ -144,9 +173,14 @@ object UpdateStatusStore {
             it.remove(UpdateApkSizeKey)
             it.remove(UpdateApkSha256Key)
             it.remove(UpdateDownloadUrlKey)
+            it.remove(UpdateDeltaUrlsKey)
             it.remove(UpdateMetadataJsonKey)
             it.remove(UpdatePendingVersionCodeKey)
             it.remove(UpdateInstallAttemptKey)
+            it.remove(UpdateArtifactKindKey)
+            it.remove(UpdateDownloadSizeKey)
+            it.remove(UpdateEconomyPercentKey)
+            it.remove(UpdateFailedDeltaKey)
             clearConsent(it)
             it[UpdateProgressKey] = 0
             if (it[UpdatePhaseKey] != UpdatePhase.INSTALLED.name) {
@@ -190,6 +224,44 @@ object UpdateStatusStore {
             it[UpdateConsentSha256Key] = sha256.lowercase()
             it[UpdateConsentApplicationIdKey] = applicationId
             it[UpdateConsentGrantedAtKey] = grantedAtMillis
+        }
+    }
+
+    suspend fun setArtifactPlan(
+        context: Context,
+        kind: String,
+        downloadSizeBytes: Long,
+        economyPercent: Int?,
+    ) {
+        edit(context) {
+            it[UpdateArtifactKindKey] = kind
+            it[UpdateDownloadSizeKey] = downloadSizeBytes
+            if (economyPercent == null) {
+                it.remove(UpdateEconomyPercentKey)
+            } else {
+                it[UpdateEconomyPercentKey] = economyPercent.coerceIn(0, 99)
+            }
+        }
+    }
+
+    suspend fun markDeltaFailed(context: Context, deltaId: String) {
+        edit(context) { it[UpdateFailedDeltaKey] = deltaId }
+    }
+
+    fun deltaUrls(status: UpdateStatus): Map<String, String> {
+        val json = status.deltaUrlsJson ?: return emptyMap()
+        return try {
+            val root = JSONObject(json)
+            val result = LinkedHashMap<String, String>()
+            val names = root.keys()
+            while (names.hasNext()) {
+                val name = names.next()
+                val url = root.optString(name)
+                if (url.isNotEmpty()) result[name] = url
+            }
+            result
+        } catch (e: Exception) {
+            emptyMap()
         }
     }
 

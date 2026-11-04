@@ -8,9 +8,9 @@ package com.dd3boh.xenowave.ui.screens.settings
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.Build
 import android.provider.Settings as AndroidSettings
+import android.text.format.Formatter
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -42,6 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.datastore.preferences.core.mutablePreferencesOf
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -141,6 +142,7 @@ fun UpdateSettingsScreen(
 
     val busy = status.phase == UpdatePhase.CHECKING ||
         status.phase == UpdatePhase.DOWNLOADING ||
+        status.phase == UpdatePhase.PREPARING ||
         status.phase == UpdatePhase.WAITING_FOR_MUSIC ||
         status.phase == UpdatePhase.INSTALLING ||
         status.phase == UpdatePhase.PENDING_USER_ACTION
@@ -190,6 +192,22 @@ fun UpdateSettingsScreen(
                         LinearProgressIndicator(
                             progress = { status.progress / 100f },
                             modifier = Modifier.fillMaxWidth(),
+                        )
+                    } else if (status.phase == UpdatePhase.PREPARING) {
+                        Spacer(Modifier.height(8.dp))
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    }
+                    val deltaDownloadSize = status.downloadSizeBytes
+                    if (status.artifactKind == "delta" && deltaDownloadSize != null) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = stringResource(
+                                R.string.update_delta_plan,
+                                Formatter.formatFileSize(context, deltaDownloadSize),
+                                status.economyPercent ?: 0,
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
                         )
                     }
                     Spacer(Modifier.height(4.dp))
@@ -328,6 +346,19 @@ fun UpdateSettingsScreen(
                                     ) {
                                         Text(stringResource(R.string.update_prompt_confirm))
                                     }
+                                    OutlinedButton(
+                                        onClick = {
+                                            UpdatePromptController.cancel(
+                                                context,
+                                                status.availableVersionCode,
+                                            )
+                                        },
+                                    ) {
+                                        Text(stringResource(R.string.update_prompt_cancel))
+                                    }
+                                }
+
+                                UpdatePhase.PREPARING -> {
                                     OutlinedButton(
                                         onClick = {
                                             UpdatePromptController.cancel(
@@ -479,6 +510,7 @@ private fun statusText(status: UpdateStatus): String = when (status.phase) {
     UpdatePhase.CHECKING -> stringResource(R.string.update_checking)
     UpdatePhase.DOWNLOADING ->
         stringResource(R.string.update_downloading, status.progress.coerceIn(0, 100))
+    UpdatePhase.PREPARING -> stringResource(R.string.update_preparing)
 
     UpdatePhase.READY_TO_INSTALL -> stringResource(R.string.update_ready)
     UpdatePhase.WAITING_FOR_MUSIC -> stringResource(R.string.update_waiting_music_status)
@@ -513,6 +545,6 @@ private fun notificationSettingsIntent(context: Context): Intent =
     } else {
         Intent(
             AndroidSettings.ACTION_APPLICATION_DETAILS_SETTINGS,
-            Uri.parse("package:${context.packageName}"),
+            "package:${context.packageName}".toUri(),
         )
     }

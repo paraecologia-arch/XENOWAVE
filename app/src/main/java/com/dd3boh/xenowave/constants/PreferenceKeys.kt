@@ -214,6 +214,11 @@ val UpdateConsentVersionCodeKey = intPreferencesKey("updateConsentVersionCode")
 val UpdateConsentSha256Key = stringPreferencesKey("updateConsentSha256")
 val UpdateConsentApplicationIdKey = stringPreferencesKey("updateConsentApplicationId")
 val UpdateConsentGrantedAtKey = longPreferencesKey("updateConsentGrantedAt")
+val UpdateDeltaUrlsKey = stringPreferencesKey("updateDeltaUrls")
+val UpdateArtifactKindKey = stringPreferencesKey("updateArtifactKind")
+val UpdateDownloadSizeKey = longPreferencesKey("updateDownloadSize")
+val UpdateEconomyPercentKey = intPreferencesKey("updateEconomyPercent")
+val UpdateFailedDeltaKey = stringPreferencesKey("updateFailedDelta")
 
 val LanguageCodeToName = mapOf(
     "af" to "Afrikaans",

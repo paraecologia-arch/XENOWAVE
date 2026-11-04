@@ -5,6 +5,12 @@ param(
     [ValidateSet("beta", "stable")][string]$Channel = "beta",
     [string]$ApplicationId = "com.dd3boh.xenowave",
     [string]$OutDir,
+    [string]$DeltaPatchPath,
+    [string]$DeltaFromApkPath,
+    [int]$DeltaFromVersionCode = 0,
+    [string]$DeltaFormat = "xnd-cdc",
+    [int]$DeltaFormatVersion = 1,
+    [int]$DeltaMinClientVersionCode = 0,
     [switch]$Force
 )
 
@@ -28,6 +34,39 @@ if ($size -lt (1MB) -or $size -gt (250MB)) {
 $hash = (Get-FileHash -LiteralPath $apk -Algorithm SHA256).Hash.ToLowerInvariant()
 $apkName = $file.Name
 
+$deltaEntry = $null
+$deltaHash = $null
+$deltaName = $null
+if ($DeltaPatchPath -or $DeltaFromApkPath) {
+    if (-not $DeltaPatchPath -or -not $DeltaFromApkPath -or $DeltaFromVersionCode -le 0) {
+        throw "Delta generation requires -DeltaPatchPath, -DeltaFromApkPath and -DeltaFromVersionCode."
+    }
+    $patch = (Resolve-Path -LiteralPath $DeltaPatchPath).Path
+    $baseApk = (Resolve-Path -LiteralPath $DeltaFromApkPath).Path
+    $patchFile = Get-Item -LiteralPath $patch
+    $deltaName = $patchFile.Name
+    if ($deltaName -notmatch '^[A-Za-z0-9._-]{1,120}\.(xnd|patch)$') {
+        throw "Unexpected delta patch name: $deltaName"
+    }
+    if ($patchFile.Length -lt 4KB -or $patchFile.Length -gt 100MB) {
+        throw "Unexpected delta patch size: $($patchFile.Length) bytes."
+    }
+    $deltaHash = (Get-FileHash -LiteralPath $patch -Algorithm SHA256).Hash.ToLowerInvariant()
+    $baseHash = (Get-FileHash -LiteralPath $baseApk -Algorithm SHA256).Hash.ToLowerInvariant()
+    $deltaEntry = [ordered]@{
+        fromVersionCode       = $DeltaFromVersionCode
+        fromApkSha256         = $baseHash
+        patchName             = $deltaName
+        patchSizeBytes        = $patchFile.Length
+        patchSha256           = $deltaHash
+        format                = $DeltaFormat
+        formatVersion         = $DeltaFormatVersion
+    }
+    if ($DeltaMinClientVersionCode -gt 0) {
+        $deltaEntry.minClientVersionCode = $DeltaMinClientVersionCode
+    }
+}
+
 if ([string]::IsNullOrWhiteSpace($OutDir)) {
     $OutDir = $file.Directory.FullName
 }
@@ -49,12 +88,19 @@ $payload = [ordered]@{
     sizeBytes     = $size
     sha256        = $hash
 }
-$json = $payload | ConvertTo-Json -Depth 3
+if ($deltaEntry -ne $null) {
+    $payload["deltas"] = @($deltaEntry)
+}
+$json = $payload | ConvertTo-Json -Depth 5
 $utf8 = [System.Text.UTF8Encoding]::new($false)
 [System.IO.File]::WriteAllText($updateJsonPath, $json, $utf8)
+$sums = @("$hash  $apkName")
+if ($deltaEntry -ne $null) {
+    $sums += "$deltaHash  $deltaName"
+}
 [System.IO.File]::WriteAllText(
     (Join-Path $OutDir "SHA256SUMS.txt"),
-    "$hash  $apkName`n",
+    ($sums -join "`n") + "`n",
     $utf8
 )
 

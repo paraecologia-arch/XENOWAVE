@@ -13,11 +13,20 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.dd3boh.xenowave.constants.AutoUpdateEnabledKey
 import com.dd3boh.xenowave.constants.UpdateChannelKey
+import com.dd3boh.xenowave.update.delta.DeltaCodec
+import com.dd3boh.xenowave.update.delta.DeltaPolicy
+import com.dd3boh.xenowave.update.delta.InstalledApkProvider
 import com.dd3boh.xenowave.utils.dataStore
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.IOException
 import java.io.File
 
 /**
@@ -62,6 +71,7 @@ class UpdateWorker(
 
         if (downloadOnly) {
             if (status.phase == UpdatePhase.INSTALLING ||
+                status.phase == UpdatePhase.PREPARING ||
                 status.phase == UpdatePhase.PENDING_USER_ACTION
             ) {
                 return Result.success()
@@ -75,11 +85,7 @@ class UpdateWorker(
 
         // A download or an installation in progress must not be replaced by a
         // discovery run. Discovery never confirms a version on the user's behalf.
-        if (status.phase == UpdatePhase.DOWNLOADING ||
-            status.phase == UpdatePhase.READY_TO_INSTALL ||
-            status.phase == UpdatePhase.INSTALLING ||
-            status.phase == UpdatePhase.PENDING_USER_ACTION
-        ) {
+        if (status.phase in ACTIVE_PHASES) {
             return Result.success()
         }
 
@@ -196,42 +202,12 @@ class UpdateWorker(
             runCatching { ApkVerifier.sha256(target) }.getOrNull() == metadata.sha256
 
         if (!existingValid) {
-            UpdateStatusStore.setPhase(context, UpdatePhase.DOWNLOADING, progress = 0)
-            val progress = MutableStateFlow(0)
-            val outcome = coroutineScope {
-                val progressJob = launch {
-                    progress.collect { UpdateStatusStore.setProgress(context, it) }
-                }
-                try {
-                    UpdateRepository().download(update, target) { progress.value = it }
-                } finally {
-                    progressJob.cancel()
-                }
+            if (tryDelta(context, update, current, installedVersionCode, target)) {
+                // Target was reconstructed and verified by hash/size.
+            } else {
+                val fullResult = downloadFull(context, update, target)
+                if (fullResult != null) return fullResult
             }
-
-            if (outcome is DownloadOutcome.Failed) {
-                val failure = when (outcome.reason) {
-                    DownloadFailure.NETWORK -> UpdateFailure.NETWORK
-                    DownloadFailure.IO,
-                    DownloadFailure.TOO_LARGE -> UpdateFailure.STORAGE
-
-                    DownloadFailure.SIZE_MISMATCH,
-                    DownloadFailure.HASH_MISMATCH -> UpdateFailure.INVALID_METADATA
-                }
-                UpdateStatusStore.setPhase(
-                    context = context,
-                    phase = UpdatePhase.FAILED,
-                    error = failure,
-                )
-                return if (outcome.reason == DownloadFailure.NETWORK &&
-                    runAttemptCount < MAX_ATTEMPTS
-                ) {
-                    Result.retry()
-                } else {
-                    Result.success()
-                }
-            }
-            UpdateStatusStore.setProgress(context, 100)
         }
 
         return when (val verification = ApkVerifier.verify(
@@ -256,6 +232,152 @@ class UpdateWorker(
                 apkFile = target,
             )
         }
+    }
+
+    /**
+     * Attempts one compatible delta. Returns true only when the target APK was
+     * reconstructed with the exact size/hash. Any non-cancel failure is recorded
+     * so the same broken patch is not retried forever; the caller then uses the
+     * normal full APK exactly once.
+     */
+    private suspend fun tryDelta(
+        context: Context,
+        update: SelectedUpdate,
+        status: UpdateStatus,
+        installedVersionCode: Int,
+        target: File,
+    ): Boolean {
+        if (update.deltas.isEmpty()) return false
+        val installed = InstalledApkProvider.get(context)
+        if (!installed.monolithic) return false
+        val installedSha = withContext(Dispatchers.IO) {
+            InstalledApkProvider.sha256(installed.path)
+        } ?: return false
+        val delta = DeltaPolicy.select(
+            deltas = update.deltas,
+            installedVersionCode = installedVersionCode,
+            installedApkSha256 = installedSha,
+            target = update.metadata,
+            failedDeltaId = status.failedDeltaId,
+        ) ?: return false
+
+        val requiredSpace = update.metadata.sizeBytes + delta.metadata.patchSizeBytes + 16L * 1024L * 1024L
+        if (context.filesDir.usableSpace < requiredSpace) return false
+
+        val patchFile = File(File(context.filesDir, UPDATES_DIRECTORY), delta.metadata.patchName)
+        val economy = DeltaPolicy.economyPercent(delta.metadata, update.metadata.sizeBytes)
+        UpdateStatusStore.setArtifactPlan(
+            context = context,
+            kind = ARTIFACT_DELTA,
+            downloadSizeBytes = delta.metadata.patchSizeBytes,
+            economyPercent = economy,
+        )
+        UpdateStatusStore.setPhase(context, UpdatePhase.DOWNLOADING, progress = 0)
+        val progress = MutableStateFlow(0)
+        val outcome = coroutineScope {
+            val progressJob = launch {
+                progress.collect { UpdateStatusStore.setProgress(context, it) }
+            }
+            try {
+                UpdateRepository().downloadPatch(delta, patchFile) { progress.value = it }
+            } finally {
+                progressJob.cancel()
+            }
+        }
+        if (outcome is DownloadOutcome.Failed) {
+            patchFile.delete()
+            if (outcome.reason != DownloadFailure.NETWORK) {
+                UpdateStatusStore.markDeltaFailed(
+                    context,
+                    DeltaPolicy.deltaId(delta.metadata, update.metadata),
+                )
+            }
+            return false
+        }
+
+        UpdateStatusStore.setProgress(context, 100)
+        UpdateStatusStore.setPhase(context, UpdatePhase.PREPARING, progress = 0)
+        return try {
+            withContext(Dispatchers.IO) {
+                DeltaCodec.applyPatch(
+                    File(installed.path),
+                    patchFile,
+                    target,
+                    update.metadata.sizeBytes,
+                )
+            }
+            currentCoroutineContext().ensureActive()
+            val exact = target.isFile &&
+                target.length() == update.metadata.sizeBytes &&
+                runCatching { ApkVerifier.sha256(target) }.getOrNull() == update.metadata.sha256
+            if (!exact) throw IOException("reconstructed APK mismatch")
+            patchFile.delete()
+            true
+        } catch (cancelled: CancellationException) {
+            patchFile.delete()
+            target.delete()
+            throw cancelled
+        } catch (failure: Throwable) {
+            patchFile.delete()
+            target.delete()
+            UpdateStatusStore.markDeltaFailed(
+                context,
+                DeltaPolicy.deltaId(delta.metadata, update.metadata),
+            )
+            false
+        }
+    }
+
+    /** Runs the existing full-APK path. Null means "continue to verification". */
+    private suspend fun downloadFull(
+        context: Context,
+        update: SelectedUpdate,
+        target: File,
+    ): Result? {
+        val metadata = update.metadata
+        val requiredSpace = metadata.sizeBytes + 8L * 1024L * 1024L
+        if (context.filesDir.usableSpace < requiredSpace) {
+            UpdateStatusStore.setPhase(context, UpdatePhase.FAILED, error = UpdateFailure.STORAGE)
+            return Result.success()
+        }
+        UpdateStatusStore.setArtifactPlan(
+            context = context,
+            kind = ARTIFACT_FULL,
+            downloadSizeBytes = metadata.sizeBytes,
+            economyPercent = null,
+        )
+        UpdateStatusStore.setPhase(context, UpdatePhase.DOWNLOADING, progress = 0)
+        val progress = MutableStateFlow(0)
+        val outcome = coroutineScope {
+            val progressJob = launch {
+                progress.collect { UpdateStatusStore.setProgress(context, it) }
+            }
+            try {
+                UpdateRepository().download(update, target) { progress.value = it }
+            } finally {
+                progressJob.cancel()
+            }
+        }
+        if (outcome is DownloadOutcome.Failed) {
+            val failure = when (outcome.reason) {
+                DownloadFailure.NETWORK -> UpdateFailure.NETWORK
+                DownloadFailure.IO,
+                DownloadFailure.TOO_LARGE -> UpdateFailure.STORAGE
+
+                DownloadFailure.SIZE_MISMATCH,
+                DownloadFailure.HASH_MISMATCH -> UpdateFailure.INVALID_METADATA
+            }
+            UpdateStatusStore.setPhase(context, UpdatePhase.FAILED, error = failure)
+            return if (outcome.reason == DownloadFailure.NETWORK &&
+                runAttemptCount < MAX_ATTEMPTS
+            ) {
+                Result.retry()
+            } else {
+                Result.success()
+            }
+        }
+        UpdateStatusStore.setProgress(context, 100)
+        return null
     }
 
     private suspend fun installVerified(
@@ -357,9 +479,13 @@ class UpdateWorker(
             return Result.success()
         }
         val downloadUrl = status.downloadUrl ?: return Result.success()
+        val deltaUrls = UpdateStatusStore.deltaUrls(status)
+        val deltas = metadata.deltas.mapNotNull { delta ->
+            deltaUrls[delta.patchName]?.let { url -> SelectedDelta(delta, url) }
+        }
         return processDownload(
             context = context,
-            update = SelectedUpdate(metadata, downloadUrl),
+            update = SelectedUpdate(metadata, downloadUrl, deltas),
             installedVersionCode = installedVersionCode,
         )
     }
@@ -433,6 +559,8 @@ class UpdateWorker(
         const val KEY_DOWNLOAD_ONLY = "downloadOnly"
         const val KEY_INSTALL_ONLY = "installOnly"
         const val UPDATES_DIRECTORY = "updates"
+        const val ARTIFACT_DELTA = "delta"
+        const val ARTIFACT_FULL = "full"
 
         private const val MAX_ATTEMPTS = 4
         private const val INSTALLING_STALE_MILLIS = 15L * 60L * 1000L
@@ -440,6 +568,7 @@ class UpdateWorker(
 
         private val ACTIVE_PHASES = setOf(
             UpdatePhase.DOWNLOADING,
+            UpdatePhase.PREPARING,
             UpdatePhase.READY_TO_INSTALL,
             UpdatePhase.WAITING_FOR_MUSIC,
             UpdatePhase.INSTALLING,

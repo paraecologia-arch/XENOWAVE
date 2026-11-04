@@ -33,8 +33,8 @@ android {
         applicationId = "com.dd3boh.xenowave"
         minSdk = 24
         targetSdk = 36
-        versionCode = 73
-        versionName = "0.10.2-beta.2"
+        versionCode = 74
+        versionName = "0.10.3-beta.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

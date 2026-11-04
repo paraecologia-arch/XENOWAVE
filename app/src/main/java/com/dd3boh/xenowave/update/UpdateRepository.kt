@@ -80,6 +80,10 @@ class UpdateRepository(
 
                     val apkAsset = release.assets
                         .firstOrNull { it.name == metadata.apkName } ?: continue
+                    val deltaUrls = metadata.deltas.mapNotNull { delta ->
+                        release.assets.firstOrNull { it.name == delta.patchName }
+                            ?.let { asset -> delta.patchName to asset.url }
+                    }.toMap()
 
                     candidates += ReleaseCandidate(
                         tagName = release.tagName,
@@ -87,6 +91,7 @@ class UpdateRepository(
                         draft = release.draft,
                         metadata = metadata,
                         downloadUrl = apkAsset.url,
+                        deltaUrls = deltaUrls,
                     )
                 }
                 if (releases.size < RELEASES_PER_PAGE) break
@@ -115,8 +120,36 @@ class UpdateRepository(
         update: SelectedUpdate,
         destination: File,
         onProgress: (Int) -> Unit,
+    ): DownloadOutcome = downloadArtifact(
+        url = update.downloadUrl,
+        expectedSize = update.metadata.sizeBytes,
+        expectedSha256 = update.metadata.sha256,
+        destination = destination,
+        maxBytes = MAX_DOWNLOAD_BYTES,
+        onProgress = onProgress,
+    )
+
+    suspend fun downloadPatch(
+        delta: SelectedDelta,
+        destination: File,
+        onProgress: (Int) -> Unit,
+    ): DownloadOutcome = downloadArtifact(
+        url = delta.downloadUrl,
+        expectedSize = delta.metadata.patchSizeBytes,
+        expectedSha256 = delta.metadata.patchSha256,
+        destination = destination,
+        maxBytes = UpdateMetadataParser.MAX_PATCH_BYTES,
+        onProgress = onProgress,
+    )
+
+    private suspend fun downloadArtifact(
+        url: String,
+        expectedSize: Long,
+        expectedSha256: String,
+        destination: File,
+        maxBytes: Long,
+        onProgress: (Int) -> Unit,
     ): DownloadOutcome = withContext(Dispatchers.IO) {
-        val metadata = update.metadata
         val parent = destination.parentFile ?: return@withContext DownloadOutcome.Failed(DownloadFailure.IO)
         if (!parent.exists() && !parent.mkdirs()) {
             return@withContext DownloadOutcome.Failed(DownloadFailure.IO)
@@ -124,7 +157,7 @@ class UpdateRepository(
 
         if (destination.exists()) {
             val existingHash = runCatching { ApkVerifier.sha256(destination) }.getOrNull()
-            if (destination.length() == metadata.sizeBytes && existingHash == metadata.sha256) {
+            if (destination.length() == expectedSize && existingHash == expectedSha256) {
                 return@withContext DownloadOutcome.Success(destination)
             }
             destination.delete()
@@ -133,17 +166,17 @@ class UpdateRepository(
         val temporary = File(parent, "${destination.name}.part")
         temporary.delete()
         try {
-            val written = client.download(update.downloadUrl, temporary, MAX_DOWNLOAD_BYTES) { bytes ->
-                val percent = ((bytes * 100L) / metadata.sizeBytes.coerceAtLeast(1L))
+            val written = client.download(url, temporary, maxBytes) { bytes ->
+                val percent = ((bytes * 100L) / expectedSize.coerceAtLeast(1L))
                     .coerceIn(0L, 100L)
                     .toInt()
                 onProgress(percent)
             }
-            if (written != metadata.sizeBytes || temporary.length() != metadata.sizeBytes) {
+            if (written != expectedSize || temporary.length() != expectedSize) {
                 temporary.delete()
                 return@withContext DownloadOutcome.Failed(DownloadFailure.SIZE_MISMATCH)
             }
-            if (ApkVerifier.sha256(temporary) != metadata.sha256) {
+            if (ApkVerifier.sha256(temporary) != expectedSha256) {
                 temporary.delete()
                 return@withContext DownloadOutcome.Failed(DownloadFailure.HASH_MISMATCH)
             }

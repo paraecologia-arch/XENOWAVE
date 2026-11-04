@@ -28,6 +28,9 @@ data class UpdatePrompt(
     val versionName: String?,
     val sha256: String,
     val sizeBytes: Long?,
+    val artifactKind: String? = null,
+    val downloadSizeBytes: Long? = null,
+    val economyPercent: Int? = null,
     val installedVersionCode: Int,
     val installedVersionName: String,
 )
@@ -182,6 +185,9 @@ object UpdatePromptController {
             versionName = status.availableVersionName,
             sha256 = sha256,
             sizeBytes = status.apkSizeBytes,
+            artifactKind = status.artifactKind,
+            downloadSizeBytes = status.downloadSizeBytes,
+            economyPercent = status.economyPercent,
             installedVersionCode = installedVersionCode,
             installedVersionName = UpdateInfo.installedVersionName(context),
         )
@@ -222,6 +228,9 @@ object UpdatePromptController {
                 versionName = status.availableVersionName,
                 sha256 = sha256,
                 sizeBytes = status.apkSizeBytes,
+                artifactKind = status.artifactKind,
+                downloadSizeBytes = status.downloadSizeBytes,
+                economyPercent = status.economyPercent,
                 installedVersionCode = UpdateInfo.installedVersionCode(context),
                 installedVersionName = UpdateInfo.installedVersionName(context),
             ),
@@ -292,6 +301,7 @@ object UpdatePromptController {
 
     private val ACTIVE_PHASES = setOf(
         UpdatePhase.DOWNLOADING,
+        UpdatePhase.PREPARING,
         UpdatePhase.READY_TO_INSTALL,
         UpdatePhase.WAITING_FOR_MUSIC,
         UpdatePhase.INSTALLING,

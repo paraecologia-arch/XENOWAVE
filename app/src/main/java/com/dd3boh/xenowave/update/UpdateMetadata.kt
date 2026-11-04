@@ -7,6 +7,7 @@
 package com.dd3boh.xenowave.update
 
 import org.json.JSONException
+import org.json.JSONArray
 import org.json.JSONObject
 
 enum class UpdateChannel {
@@ -29,6 +30,18 @@ data class UpdateMetadata(
     val apkName: String,
     val sizeBytes: Long,
     val sha256: String,
+    val deltas: List<DeltaMetadata> = emptyList(),
+)
+
+data class DeltaMetadata(
+    val fromVersionCode: Int,
+    val fromApkSha256: String,
+    val patchName: String,
+    val patchSizeBytes: Long,
+    val patchSha256: String,
+    val format: String,
+    val formatVersion: Int,
+    val minClientVersionCode: Int? = null,
 )
 
 fun UpdateMetadata.toJsonString(): String = JSONObject().apply {
@@ -41,6 +54,22 @@ fun UpdateMetadata.toJsonString(): String = JSONObject().apply {
     put("apkName", apkName)
     put("sizeBytes", sizeBytes)
     put("sha256", sha256)
+    if (deltas.isNotEmpty()) {
+        put("deltas", JSONArray().apply {
+            deltas.forEach { delta ->
+                put(JSONObject().apply {
+                    put("fromVersionCode", delta.fromVersionCode)
+                    put("fromApkSha256", delta.fromApkSha256)
+                    put("patchName", delta.patchName)
+                    put("patchSizeBytes", delta.patchSizeBytes)
+                    put("patchSha256", delta.patchSha256)
+                    put("format", delta.format)
+                    put("formatVersion", delta.formatVersion)
+                    delta.minClientVersionCode?.let { put("minClientVersionCode", it) }
+                })
+            }
+        })
+    }
 }.toString()
 
 sealed interface UpdateMetadataResult {
@@ -58,11 +87,15 @@ object UpdateMetadataParser {
     const val SCHEMA_VERSION = 1
     const val MAX_APK_BYTES = 250L * 1024L * 1024L
     const val MIN_APK_BYTES = 1L * 1024L * 1024L
+    const val MAX_PATCH_BYTES = 100L * 1024L * 1024L
+    const val MIN_PATCH_BYTES = 4L * 1024L
+    const val MAX_DELTAS = 4
 
     private val SHA256_PATTERN = Regex("^[0-9a-f]{64}$")
     private val VERSION_NAME_PATTERN =
         Regex("^[0-9]{1,4}(\\.[0-9]{1,4}){1,3}([-+][0-9A-Za-z.\\-]{1,32})?$")
     private val APK_NAME_PATTERN = Regex("^[A-Za-z0-9._-]{1,120}\\.apk$")
+    private val PATCH_NAME_PATTERN = Regex("^[A-Za-z0-9._-]{1,120}\\.(xnd|patch)$")
 
     fun parse(json: String, expectedApplicationId: String): UpdateMetadataResult {
         val root = try {
@@ -114,6 +147,8 @@ object UpdateMetadataParser {
             return UpdateMetadataResult.Invalid("invalid-sha256")
         }
 
+        val deltas = parseDeltas(root.optJSONArray("deltas"), versionCode)
+
         return UpdateMetadataResult.Valid(
             UpdateMetadata(
                 schemaVersion = schemaVersion,
@@ -125,9 +160,59 @@ object UpdateMetadataParser {
                 apkName = apkName,
                 sizeBytes = sizeBytes,
                 sha256 = sha256,
+                deltas = deltas,
             )
         )
     }
+
+    /**
+     * Delta entries are optional and fail closed per entry. A malformed delta
+     * never invalidates the root APK metadata, so existing clients keep working.
+     */
+    private fun parseDeltas(array: JSONArray?, targetVersionCode: Int): List<DeltaMetadata> {
+        if (array == null || array.length() == 0) return emptyList()
+        val result = ArrayList<DeltaMetadata>(minOf(array.length(), MAX_DELTAS))
+        for (index in 0 until array.length()) {
+            if (result.size >= MAX_DELTAS) break
+            val item = array.optJSONObject(index) ?: continue
+            val fromVersionCode = item.optInt("fromVersionCode", -1)
+            if (fromVersionCode <= 0 || fromVersionCode >= targetVersionCode) continue
+            val fromApkSha256 = item.optString("fromApkSha256").trim().lowercase()
+            if (!SHA256_PATTERN.matches(fromApkSha256)) continue
+            val patchName = item.optString("patchName").trim()
+            if (!PATCH_NAME_PATTERN.matches(patchName)) continue
+            val patchSizeBytes = item.optLong("patchSizeBytes", -1L)
+            if (patchSizeBytes !in MIN_PATCH_BYTES..MAX_PATCH_BYTES) continue
+            val patchSha256 = item.optString("patchSha256").trim().lowercase()
+            if (!SHA256_PATTERN.matches(patchSha256)) continue
+            val format = item.optString("format").trim().lowercase()
+            val formatVersion = item.optInt("formatVersion", -1)
+            if (format != DeltaCodecContract.FORMAT_NAME ||
+                formatVersion != DeltaCodecContract.FORMAT_VERSION
+            ) {
+                continue
+            }
+            val minClientVersionCode = item.optInt("minClientVersionCode", 0)
+                .takeIf { it > 0 }
+            result += DeltaMetadata(
+                fromVersionCode = fromVersionCode,
+                fromApkSha256 = fromApkSha256,
+                patchName = patchName,
+                patchSizeBytes = patchSizeBytes,
+                patchSha256 = patchSha256,
+                format = format,
+                formatVersion = formatVersion,
+                minClientVersionCode = minClientVersionCode,
+            )
+        }
+        return result
+    }
+}
+
+/** Keeps the metadata module free of the Java applier implementation. */
+object DeltaCodecContract {
+    const val FORMAT_NAME = "xnd-cdc"
+    const val FORMAT_VERSION = 1
 }
 
 /**
@@ -143,10 +228,17 @@ data class ReleaseCandidate(
     val draft: Boolean,
     val metadata: UpdateMetadata,
     val downloadUrl: String,
+    val deltaUrls: Map<String, String> = emptyMap(),
 )
 
 data class SelectedUpdate(
     val metadata: UpdateMetadata,
+    val downloadUrl: String,
+    val deltas: List<SelectedDelta> = emptyList(),
+)
+
+data class SelectedDelta(
+    val metadata: DeltaMetadata,
     val downloadUrl: String,
 )
 
@@ -168,4 +260,14 @@ fun selectUpdate(
     .filter { it.metadata.minSdk <= sdkInt }
     .filter { !(channel == UpdateChannel.STABLE && it.metadata.channel == UpdateChannel.BETA) }
     .maxByOrNull { it.metadata.versionCode }
-    ?.let { SelectedUpdate(it.metadata, it.downloadUrl) }
+    ?.let { candidate ->
+        SelectedUpdate(
+            metadata = candidate.metadata,
+            downloadUrl = candidate.downloadUrl,
+            deltas = candidate.metadata.deltas.mapNotNull { delta ->
+                candidate.deltaUrls[delta.patchName]?.let { url ->
+                    SelectedDelta(delta, url)
+                }
+            },
+        )
+    }

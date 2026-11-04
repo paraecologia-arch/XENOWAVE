@@ -13,6 +13,7 @@ class UpdateSelectionTest {
         channel: UpdateChannel = UpdateChannel.BETA,
         minSdk: Int = 24,
         appId: String = applicationId,
+        deltas: List<DeltaMetadata> = emptyList(),
     ) = UpdateMetadata(
         schemaVersion = 1,
         applicationId = appId,
@@ -23,6 +24,7 @@ class UpdateSelectionTest {
         apkName = "XENOWAVE-0.10.$versionCode-core.apk",
         sizeBytes = 14_000_000L,
         sha256 = "a".repeat(64),
+        deltas = deltas,
     )
 
     private fun candidate(
@@ -30,12 +32,14 @@ class UpdateSelectionTest {
         prerelease: Boolean = true,
         draft: Boolean = false,
         tag: String = "v${metadata.versionName}",
+        deltaUrls: Map<String, String> = emptyMap(),
     ) = ReleaseCandidate(
         tagName = tag,
         prerelease = prerelease,
         draft = draft,
         metadata = metadata,
         downloadUrl = "https://github.com/paraecologia-arch/XENOWAVE/releases/download/$tag/${metadata.apkName}",
+        deltaUrls = deltaUrls,
     )
 
     @Test
@@ -123,5 +127,32 @@ class UpdateSelectionTest {
         assertEquals(true, updateChannelAllows(prerelease = true, channel = UpdateChannel.BETA))
         assertEquals(false, updateChannelAllows(prerelease = true, channel = UpdateChannel.STABLE))
         assertEquals(true, updateChannelAllows(prerelease = false, channel = UpdateChannel.STABLE))
+    }
+
+    @Test
+    fun `resolves delta assets from the same release`() {
+        val delta = DeltaMetadata(
+            fromVersionCode = 72,
+            fromApkSha256 = "b".repeat(64),
+            patchName = "old-to-new.xnd",
+            patchSizeBytes = 2_000_000L,
+            patchSha256 = "c".repeat(64),
+            format = DeltaCodecContract.FORMAT_NAME,
+            formatVersion = DeltaCodecContract.FORMAT_VERSION,
+        )
+        val selected = selectUpdate(
+            candidates = listOf(
+                candidate(
+                    metadata(74, deltas = listOf(delta)),
+                    deltaUrls = mapOf("old-to-new.xnd" to "https://example.test/patch"),
+                )
+            ),
+            channel = UpdateChannel.BETA,
+            installedVersionCode = 72,
+            sdkInt = 36,
+            applicationId = applicationId,
+        )
+        assertEquals(1, selected?.deltas?.size)
+        assertEquals("https://example.test/patch", selected?.deltas?.first()?.downloadUrl)
     }
 }

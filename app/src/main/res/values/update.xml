@@ -8,6 +8,8 @@
     <string name="update_never_checked">Not checked yet</string>
     <string name="update_checking">Checking for updates…</string>
     <string name="update_downloading">Downloading… %1$d%%</string>
+    <string name="update_preparing">Preparing update…</string>
+    <string name="update_delta_plan">Reduced download: %1$s (%2$d%% smaller than the full APK).</string>
     <string name="update_ready">Update downloaded and verified.</string>
     <string name="update_waiting_music_status">Update ready. Waiting for playback to pause.</string>
     <string name="update_installing">Installing…</string>
@@ -48,6 +50,7 @@
     <string name="update_prompt_title">New XENOWAVE version available</string>
     <string name="update_prompt_message">Installed: %1$s (%2$d).\nNew version: %3$s (%4$d).\n\nDownload and installation start only after you tap Update.</string>
     <string name="update_prompt_size">Download size: %1$s</string>
+    <string name="update_prompt_size_delta">Reduced download: %1$s (%2$d%% smaller than the full APK).</string>
     <string name="update_prompt_update">Update</string>
     <string name="update_prompt_not_now">Not now</string>
     <string name="update_prompt_preparing">Preparing update…</string>

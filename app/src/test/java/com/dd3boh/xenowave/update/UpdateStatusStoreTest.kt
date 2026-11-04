@@ -8,7 +8,12 @@ import com.dd3boh.xenowave.constants.UpdateConsentApplicationIdKey
 import com.dd3boh.xenowave.constants.UpdateConsentGrantedAtKey
 import com.dd3boh.xenowave.constants.UpdateConsentSha256Key
 import com.dd3boh.xenowave.constants.UpdateConsentVersionCodeKey
+import com.dd3boh.xenowave.constants.UpdateArtifactKindKey
+import com.dd3boh.xenowave.constants.UpdateDeltaUrlsKey
+import com.dd3boh.xenowave.constants.UpdateDownloadSizeKey
+import com.dd3boh.xenowave.constants.UpdateEconomyPercentKey
 import com.dd3boh.xenowave.constants.UpdateErrorKey
+import com.dd3boh.xenowave.constants.UpdateFailedDeltaKey
 import com.dd3boh.xenowave.constants.UpdatePhaseKey
 import com.dd3boh.xenowave.constants.UpdateProgressKey
 import com.dd3boh.xenowave.constants.UpdateVersionCodeKey
@@ -17,7 +22,10 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
+@RunWith(RobolectricTestRunner::class)
 class UpdateStatusStoreTest {
 
     @Test
@@ -72,6 +80,27 @@ class UpdateStatusStoreTest {
         assertEquals("a".repeat(64), status.consentApkSha256)
         assertEquals("com.dd3boh.xenowave", status.consentApplicationId)
         assertEquals(987_654L, status.consentGrantedAtMillis)
+    }
+
+    @Test
+    fun `reads a delta download plan and failed delta marker`() {
+        val preferences = mutablePreferencesOf(
+            UpdateDeltaUrlsKey to """{"old-to-new.xnd":"https://example.test/patch"}""",
+            UpdateArtifactKindKey to "delta",
+            UpdateDownloadSizeKey to 2_000_000L,
+            UpdateEconomyPercentKey to 86,
+            UpdateFailedDeltaKey to "failure-id",
+        )
+
+        val status = UpdateStatusStore.read(preferences)
+        assertEquals("delta", status.artifactKind)
+        assertEquals(2_000_000L, status.downloadSizeBytes)
+        assertEquals(86, status.economyPercent)
+        assertEquals("failure-id", status.failedDeltaId)
+        assertEquals(
+            "https://example.test/patch",
+            UpdateStatusStore.deltaUrls(status)["old-to-new.xnd"],
+        )
     }
 
     @Test

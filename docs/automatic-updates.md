@@ -27,6 +27,12 @@ official version and how to test the first update safely.
 - Downloads go to the app's private storage (`files/updates`), use a `.part`
   file and are committed atomically after the size and SHA-256 match the
   metadata.
+- Optional deltas (`XND1`, `xnd-cdc/1`) may replace the full download when the
+  installed APK matches the published base exactly and the patch saves at least
+  20%. The app reconstructs a separate private APK, verifies its exact size,
+  SHA-256, package and signature, and falls back to the full APK once on
+  failure. The same explicit consent gate applies before any patch download.
+  See `docs/delta-updates.md`.
 - Before installation the APK is checked again: size, SHA-256, package name,
   increasing `versionCode`, minimum SDK and signing certificate compatibility
   (including Android key-rotation history).

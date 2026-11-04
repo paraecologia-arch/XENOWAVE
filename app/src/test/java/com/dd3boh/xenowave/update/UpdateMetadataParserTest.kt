@@ -99,6 +99,90 @@ class UpdateMetadataParserTest {
         assertInvalid("invalid-json", "{ not json")
     }
 
+    @Test
+    fun `old metadata without deltas remains valid`() {
+        val metadata = (UpdateMetadataParser.parse(json(), applicationId)
+            as UpdateMetadataResult.Valid).metadata
+        assertTrue(metadata.deltas.isEmpty())
+    }
+
+    @Test
+    fun `parses a valid delta and ignores malformed entries`() {
+        val payload = jsonWithDeltas(
+            """
+            {
+              "fromVersionCode": 72,
+              "fromApkSha256": "${"a".repeat(64)}",
+              "patchName": "old-to-new.xnd",
+              "patchSizeBytes": 2000000,
+              "patchSha256": "${"b".repeat(64)}",
+              "format": "xnd-cdc",
+              "formatVersion": 1
+            },
+            {
+              "fromVersionCode": 71,
+              "fromApkSha256": "${"a".repeat(64)}",
+              "patchName": "../escape.xnd",
+              "patchSizeBytes": 2000000,
+              "patchSha256": "${"b".repeat(64)}",
+              "format": "xnd-cdc",
+              "formatVersion": 1
+            },
+            {
+              "fromVersionCode": 70,
+              "fromApkSha256": "${"a".repeat(64)}",
+              "patchName": "old-to-new.patch",
+              "patchSizeBytes": 2000000,
+              "patchSha256": "${"b".repeat(64)}",
+              "format": "unknown",
+              "formatVersion": 1
+            }
+            """
+        )
+        val metadata = (UpdateMetadataParser.parse(payload, applicationId)
+            as UpdateMetadataResult.Valid).metadata
+        assertEquals(1, metadata.deltas.size)
+        assertEquals(72, metadata.deltas.first().fromVersionCode)
+        assertEquals("old-to-new.xnd", metadata.deltas.first().patchName)
+    }
+
+    @Test
+    fun `serialization preserves the optional delta list`() {
+        val payload = jsonWithDeltas(
+            """
+            {
+              "fromVersionCode": 72,
+              "fromApkSha256": "${"a".repeat(64)}",
+              "patchName": "old-to-new.xnd",
+              "patchSizeBytes": 2000000,
+              "patchSha256": "${"b".repeat(64)}",
+              "format": "xnd-cdc",
+              "formatVersion": 1
+            }
+            """
+        )
+        val metadata = (UpdateMetadataParser.parse(payload, applicationId)
+            as UpdateMetadataResult.Valid).metadata
+        val roundTrip = (UpdateMetadataParser.parse(metadata.toJsonString(), applicationId)
+            as UpdateMetadataResult.Valid).metadata
+        assertEquals(metadata.deltas, roundTrip.deltas)
+    }
+
+    private fun jsonWithDeltas(deltas: String): String = """
+        {
+          "schemaVersion": 1,
+          "applicationId": "$applicationId",
+          "versionCode": 74,
+          "versionName": "0.10.3-beta.1",
+          "channel": "beta",
+          "minSdk": 24,
+          "apkName": "XENOWAVE-0.10.3-beta.1-core.apk",
+          "sizeBytes": 15000000,
+          "sha256": "$sha",
+          "deltas": [$deltas]
+        }
+    """.trimIndent()
+
     private fun assertInvalid(expectedReason: String, payload: String) {
         val result = UpdateMetadataParser.parse(payload, applicationId)
         assertTrue("expected Invalid but was $result", result is UpdateMetadataResult.Invalid)

@@ -7,6 +7,7 @@
 package com.dd3boh.xenowave.ui.dialog
 
 import android.content.Intent
+import android.text.format.Formatter
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -111,6 +112,7 @@ fun UpdatePromptHost(enabled: Boolean = true) {
 
         status.phase == UpdatePhase.FAILED -> UpdateFailureDialog(current, status)
         status.phase == UpdatePhase.DOWNLOADING -> UpdateProgressDialog(current, status)
+        status.phase == UpdatePhase.PREPARING -> UpdateCheckingDialog(current)
         status.phase == UpdatePhase.CHECKING -> UpdateCheckingDialog(current)
         status.phase == UpdatePhase.WAITING_FOR_MUSIC -> UpdateMusicDialog(current)
 
@@ -136,7 +138,19 @@ private fun UpdateQuestionDialog(prompt: UpdatePrompt) {
                         prompt.versionCode,
                     )
                 )
-                prompt.sizeBytes?.let { size ->
+                val deltaSize = prompt.downloadSizeBytes
+                if (prompt.artifactKind == "delta" && deltaSize != null) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = stringResource(
+                            R.string.update_prompt_size_delta,
+                            Formatter.formatFileSize(context, deltaSize),
+                            prompt.economyPercent ?: 0,
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                } else prompt.sizeBytes?.let { size ->
                     Spacer(Modifier.height(8.dp))
                     Text(
                         text = stringResource(
@@ -200,6 +214,19 @@ private fun UpdateProgressDialog(prompt: UpdatePrompt, status: UpdateStatus) {
                     progress = { status.progress.coerceIn(0, 100) / 100f },
                     modifier = Modifier.fillMaxWidth(),
                 )
+                val deltaSize = prompt.downloadSizeBytes
+                if (prompt.artifactKind == "delta" && deltaSize != null) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = stringResource(
+                            R.string.update_prompt_size_delta,
+                            Formatter.formatFileSize(context, deltaSize),
+                            prompt.economyPercent ?: 0,
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
             }
         },
         confirmButton = {

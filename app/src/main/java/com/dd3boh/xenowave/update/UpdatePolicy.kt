@@ -10,6 +10,7 @@ enum class UpdatePhase {
     IDLE,
     CHECKING,
     DOWNLOADING,
+    PREPARING,
     READY_TO_INSTALL,
     WAITING_FOR_MUSIC,
     INSTALLING,
