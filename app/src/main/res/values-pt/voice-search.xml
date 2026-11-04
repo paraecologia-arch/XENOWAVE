@@ -7,6 +7,8 @@
     <string name="voice_search_retry">Tentar novamente</string>
     <string name="voice_search_cancel">Cancelar</string>
     <string name="voice_search_permission_denied">A permissão do microfone é necessária para pesquisar por voz.</string>
+    <string name="voice_search_permission_settings_hint">O acesso ao microfone está bloqueado. Pode ativá-lo nas definições da aplicação ou continuar a usar a pesquisa por texto.</string>
+    <string name="voice_search_open_settings">Abrir definições</string>
     <string name="voice_search_busy">O reconhecimento de voz está ocupado. Tente novamente.</string>
     <string name="voice_search_no_speech">Não ouvi o nome de uma música. Tente novamente.</string>
     <string name="voice_search_network">O reconhecimento de voz precisa de ligação à internet neste momento. Tente novamente.</string>

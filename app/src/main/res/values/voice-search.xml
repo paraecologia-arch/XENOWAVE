@@ -7,6 +7,8 @@
     <string name="voice_search_retry">Try again</string>
     <string name="voice_search_cancel">Cancel</string>
     <string name="voice_search_permission_denied">Microphone permission is needed to search by voice.</string>
+    <string name="voice_search_permission_settings_hint">Microphone access is blocked. You can enable it in the app settings, or keep using text search.</string>
+    <string name="voice_search_open_settings">Open settings</string>
     <string name="voice_search_busy">Voice recognition is busy. Please try again.</string>
     <string name="voice_search_no_speech">I did not hear a song name. Please try again.</string>
     <string name="voice_search_network">Voice recognition needs a connection right now. Please try again.</string>

@@ -1,7 +1,11 @@
 package com.dd3boh.xenowave.ui.screens.search
 
 import android.Manifest
+import android.app.Activity
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.SystemClock
+import android.provider.Settings
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -26,11 +30,14 @@ import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -48,8 +55,10 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastAny
 import androidx.core.content.ContextCompat
+import androidx.core.app.ActivityCompat
 import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -76,6 +85,8 @@ import com.dd3boh.xenowave.utils.get
 import com.dd3boh.xenowave.utils.rememberEnumPreference
 import com.dd3boh.xenowave.utils.rememberPreference
 import com.dd3boh.xenowave.utils.urlEncode
+import com.dd3boh.xenowave.utils.voice.VoicePermissionAction
+import com.dd3boh.xenowave.utils.voice.VoicePermissionPolicy
 import com.dd3boh.xenowave.youtubeNavigator
 import kotlinx.coroutines.launch
 
@@ -113,6 +124,15 @@ fun SearchBarContainer(
     }
     var showVoiceSearch by rememberSaveable {
         mutableStateOf(false)
+    }
+    var permissionRequestInFlight by rememberSaveable {
+        mutableStateOf(false)
+    }
+    var permissionDeniedBefore by rememberSaveable {
+        mutableStateOf(false)
+    }
+    var lastPermissionRequestAt by rememberSaveable {
+        mutableLongStateOf(0L)
     }
     var pausedForVoiceSearch by remember {
         mutableStateOf(false)
@@ -155,7 +175,8 @@ fun SearchBarContainer(
         }
     }
 
-    val openVoiceSearch: () -> Unit = {
+    val openVoiceSearch: () -> Unit = open@{
+        if (showVoiceSearch) return@open
         // Music playing while the microphone is open makes recognition much harder.
         val player = playerConnection?.player
         if (player != null && player.isPlaying) {
@@ -180,9 +201,14 @@ fun SearchBarContainer(
     val recordAudioPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
+        permissionRequestInFlight = false
         if (granted) {
-            openVoiceSearch()
+            permissionDeniedBefore = false
+            if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                openVoiceSearch()
+            }
         } else {
+            permissionDeniedBefore = true
             coroutineScope.launch {
                 globalSnackbarHostState.showSnackbar(
                     message = context.getString(R.string.voice_search_permission_denied),
@@ -193,16 +219,67 @@ fun SearchBarContainer(
         }
     }
 
-    val startVoiceSearch: () -> Unit = {
-        if (ContextCompat.checkSelfPermission(
+    val startVoiceSearch: () -> Unit = start@{
+        val hasPermission = ContextCompat.checkSelfPermission(
                 context,
                 Manifest.permission.RECORD_AUDIO
             ) == PackageManager.PERMISSION_GRANTED
-        ) {
-            openVoiceSearch()
-        } else {
-            recordAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        when (VoicePermissionPolicy.action(hasPermission, permissionRequestInFlight)) {
+            VoicePermissionAction.OPEN_VOICE -> openVoiceSearch()
+            VoicePermissionAction.IGNORE_REQUEST_IN_FLIGHT -> Unit
+            VoicePermissionAction.REQUEST_PERMISSION -> {
+                val now = SystemClock.elapsedRealtime()
+                if (VoicePermissionPolicy.isCooldownActive(lastPermissionRequestAt, now)) {
+                    return@start
+                }
+                val activity = context as? Activity
+                val rationale = activity != null &&
+                    ActivityCompat.shouldShowRequestPermissionRationale(
+                        activity,
+                        Manifest.permission.RECORD_AUDIO,
+                    )
+                if (VoicePermissionPolicy.shouldOfferSettings(permissionDeniedBefore, rationale)) {
+                    coroutineScope.launch {
+                        val result = globalSnackbarHostState.showSnackbar(
+                            message = context.getString(R.string.voice_search_permission_settings_hint),
+                            actionLabel = context.getString(R.string.voice_search_open_settings),
+                            withDismissAction = true,
+                            duration = SnackbarDuration.Long,
+                        )
+                        if (result == SnackbarResult.ActionPerformed) {
+                            runCatching {
+                                context.startActivity(
+                                    Intent(
+                                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                        "package:${context.packageName}".toUri(),
+                                    )
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    permissionRequestInFlight = true
+                    lastPermissionRequestAt = now
+                    runCatching {
+                        recordAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    }.onFailure {
+                        permissionRequestInFlight = false
+                    }
+                }
+            }
         }
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                // A permission dialog or the app settings screen may have
+                // completed while this composition was paused.
+                permissionRequestInFlight = false
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     val shouldShowSearchBar = remember(searchActive, navBackStackEntry) {
