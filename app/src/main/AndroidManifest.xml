@@ -120,6 +120,18 @@
                 <data android:mimeType="text/plain" />
             </intent-filter>
 
+            <!-- Portable playlist references exported by XENOWAVE. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+
+                <data
+                    android:scheme="content"
+                    android:mimeType="application/vnd.xenowave.playlist+json" />
+            </intent-filter>
+
             <meta-data
                 android:name="android.app.shortcuts"
                 android:resource="@xml/shortcuts" />

@@ -40,6 +40,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -65,7 +66,11 @@ import com.dd3boh.xenowave.ui.component.SettingsClickToReveal
 import com.dd3boh.xenowave.ui.component.XenoBrandMark
 import com.dd3boh.xenowave.ui.component.button.IconButton
 import com.dd3boh.xenowave.ui.component.button.IconLabelButton
+import com.dd3boh.xenowave.ui.icons.XenoActionIcons
 import com.dd3boh.xenowave.ui.utils.backToMain
+import com.dd3boh.xenowave.sharing.OfficialAppLinkProvider
+import com.dd3boh.xenowave.sharing.ShareIntentFactory
+import com.dd3boh.xenowave.sharing.ShareMessageBuilder
 import com.dd3boh.xenowave.utils.rememberPreference
 import com.dd3boh.xenowave.utils.scanners.FFmpegScanner
 import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.FfmpegLibrary
@@ -80,6 +85,7 @@ fun AboutScreen(
     scrollBehavior: TopAppBarScrollBehavior,
 ) {
     val uriHandler = LocalUriHandler.current
+    val context = LocalContext.current
 
     val showDebugInfo = BuildConfig.DEBUG || BuildConfig.BUILD_TYPE == "userdebug"
     var signalTapCount by remember { mutableIntStateOf(0) }
@@ -200,6 +206,28 @@ fun AboutScreen(
                     onClick = {
                         navController.navigate("settings/updates")
                     }
+                )
+                PreferenceEntry(
+                    title = { Text(stringResource(R.string.share_app_title)) },
+                    description = stringResource(R.string.share_app_description),
+                    icon = {
+                        com.dd3boh.xenowave.ui.icons.XenoIcon(
+                            icon = XenoActionIcons.Share,
+                            contentDescription = null,
+                        )
+                    },
+                    onClick = {
+                        ShareIntentFactory.shareText(
+                            context = context,
+                            chooserTitle = context.getString(R.string.share_chooser_title),
+                            text = ShareMessageBuilder.appInvite(
+                                template = context.getString(R.string.share_app_message),
+                                appName = context.getString(R.string.app_name),
+                                downloadUrl = OfficialAppLinkProvider.RELEASES_URL,
+                            ),
+                            title = context.getString(R.string.share_app_title),
+                        )
+                    },
                 )
                 PreferenceEntry(
                     title = { Text(stringResource(R.string.attribution_title)) },

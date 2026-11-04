@@ -136,6 +136,7 @@ import com.dd3boh.xenowave.ui.component.rememberBottomSheetState
 import com.dd3boh.xenowave.ui.component.XenoWaveStartupGate
 import com.dd3boh.xenowave.ui.component.XenoWaveStartupSplash
 import com.dd3boh.xenowave.ui.component.shimmer.ShimmerTheme
+import com.dd3boh.xenowave.ui.dialog.ImportSharedPlaylistDialog
 import com.dd3boh.xenowave.ui.dialog.UpdatePromptHost
 import com.dd3boh.xenowave.ui.menu.BottomSheetMenu
 import com.dd3boh.xenowave.ui.menu.MenuState
@@ -195,6 +196,8 @@ import com.dd3boh.xenowave.utils.coilCoroutine
 import com.dd3boh.xenowave.utils.lmScannerCoroutine
 import com.dd3boh.xenowave.utils.rememberEnumPreference
 import com.dd3boh.xenowave.utils.rememberPreference
+import com.dd3boh.xenowave.sharing.PlaylistImportCoordinator
+import com.dd3boh.xenowave.sharing.SharedIntentHandler
 import com.dd3boh.xenowave.update.UpdatePromptController
 import com.valentinilk.shimmer.LocalShimmerTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -455,23 +458,32 @@ class MainActivity : ComponentActivity() {
                     )
 
 
-                    DisposableEffect(Unit) {
-                        val listener = Consumer<Intent> { intent ->
-                            val uri =
-                                intent.data ?: intent.extras?.getString(Intent.EXTRA_TEXT)?.toUri()
-                                ?: return@Consumer
-                            youtubeNavigator(
-                                this@MainActivity,
-                                navController,
-                                coroutineScope,
-                                playerConnection,
-                                snackbarHostState,
-                                uri
-                            )
-                        }
+                    val handleSharedIntent: suspend (Intent) -> Unit = { sharedIntent ->
+                        SharedIntentHandler.handle(
+                            context = this@MainActivity,
+                            intent = sharedIntent,
+                            navController = navController,
+                            coroutineScope = coroutineScope,
+                            playerConnection = playerConnection,
+                            snackbarHostState = snackbarHostState,
+                            onImport = PlaylistImportCoordinator::offer,
+                        )
+                    }
 
+                    DisposableEffect(navController, playerConnection) {
+                        val listener = Consumer<Intent> { sharedIntent ->
+                            coroutineScope.launch { handleSharedIntent(sharedIntent) }
+                        }
                         addOnNewIntentListener(listener)
                         onDispose { removeOnNewIntentListener(listener) }
+                    }
+
+                    var initialIntentHandled by rememberSaveable { mutableStateOf(false) }
+                    LaunchedEffect(Unit) {
+                        if (!initialIntentHandled) {
+                            initialIntentHandled = true
+                            intent?.let { handleSharedIntent(it) }
+                        }
                     }
 
                     CompositionLocalProvider(
@@ -995,6 +1007,10 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                             bottomSheetMenu()
+
+                            if (oobeStatus >= OOBE_VERSION) {
+                                ImportSharedPlaylistDialog()
+                            }
 
                             SnackbarHost(
                                 hostState = snackbarHostState,

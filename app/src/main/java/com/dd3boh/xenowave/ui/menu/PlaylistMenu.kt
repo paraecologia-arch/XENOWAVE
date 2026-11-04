@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -46,6 +47,13 @@ import com.dd3boh.xenowave.models.toMediaMetadata
 import com.dd3boh.xenowave.playback.ExoDownloadService
 import com.dd3boh.xenowave.playback.queues.ListQueue
 import com.dd3boh.xenowave.playback.queues.YouTubeQueue
+import com.dd3boh.xenowave.sharing.ExportSong
+import com.dd3boh.xenowave.sharing.OfficialAppLinkProvider
+import com.dd3boh.xenowave.sharing.PlaylistExportResult
+import com.dd3boh.xenowave.sharing.PlaylistTransferExporter
+import com.dd3boh.xenowave.sharing.PlaylistTransferFormat
+import com.dd3boh.xenowave.sharing.ShareIntentFactory
+import com.dd3boh.xenowave.sharing.ShareMessageBuilder
 import com.dd3boh.xenowave.ui.component.button.IconButton
 import com.dd3boh.xenowave.ui.component.items.PlaylistListItem
 import com.dd3boh.xenowave.ui.dialog.AddToPlaylistDialog
@@ -145,6 +153,12 @@ fun PlaylistMenu(
     }
     var suggestionSourceLabel by remember {
         mutableStateOf("")
+    }
+    var pendingLocalShare by remember {
+        mutableStateOf<PlaylistExportResult.Success?>(null)
+    }
+    var localShareError by remember {
+        mutableStateOf<Int?>(null)
     }
 
     LaunchedEffect(songs) {
@@ -325,13 +339,47 @@ fun PlaylistMenu(
                 icon = com.dd3boh.xenowave.ui.icons.XenoActionIcons.Share,
                 title = R.string.share
             ) {
-                val intent = Intent().apply {
-                    action = Intent.ACTION_SEND
-                    type = "text/plain"
-                    putExtra(Intent.EXTRA_TEXT, shareLink)
-                }
-                context.startActivity(Intent.createChooser(intent, null))
+                ShareIntentFactory.shareText(
+                    context = context,
+                    chooserTitle = context.getString(R.string.share_playlist_chooser_title),
+                    text = ShareMessageBuilder.onlinePlaylist(
+                        template = context.getString(R.string.share_playlist_message),
+                        visibilityHintTemplate = context.getString(R.string.share_playlist_visibility_hint),
+                        title = playlist.playlist.name,
+                        playlistUrl = shareLink,
+                        appName = context.getString(R.string.app_name),
+                        downloadUrl = OfficialAppLinkProvider.RELEASES_URL,
+                    ),
+                    title = playlist.playlist.name,
+                )
                 onDismiss()
+            }
+        }
+        if (playlist.playlist.shareLink == null || playlist.playlist.isLocal) {
+            GridMenuItem(
+                icon = com.dd3boh.xenowave.ui.icons.XenoActionIcons.Share,
+                title = R.string.share_local_playlist_button
+            ) {
+                when (
+                    val result = PlaylistTransferFormat.export(
+                        playlistName = playlist.playlist.name,
+                        songs = songs.map { song ->
+                            ExportSong(
+                                videoId = song.id,
+                                title = song.title,
+                                artists = song.artists.map { it.name },
+                                isLocal = song.song.isLocal || song.song.localPath != null,
+                            )
+                        },
+                    )
+                ) {
+                    is PlaylistExportResult.Success -> pendingLocalShare = result
+                    is PlaylistExportResult.Failure -> localShareError = when (result.reason) {
+                        "no-online-tracks" -> R.string.share_local_playlist_no_online
+                        "too-many-tracks", "too-large" -> R.string.share_local_playlist_too_many
+                        else -> R.string.share_local_playlist_failed
+                    }
+                }
             }
         }
         GridMenuItem(
@@ -492,5 +540,73 @@ fun PlaylistMenu(
                 }
             )
         }
+    }
+
+    pendingLocalShare?.let { result ->
+        AlertDialog(
+            onDismissRequest = { pendingLocalShare = null },
+            title = { Text(stringResource(R.string.share_local_playlist_button)) },
+            text = {
+                Text(
+                    stringResource(
+                        R.string.share_local_playlist_summary,
+                        result.playlist.name,
+                        result.playlist.tracks.size,
+                        result.playlist.excludedLocalCount,
+                    )
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        coroutineScope.launch(Dispatchers.IO) {
+                            val uri = runCatching {
+                                PlaylistTransferExporter.write(context, result)
+                            }.getOrNull()
+                            withContext(Dispatchers.Main) {
+                                if (uri == null) {
+                                    localShareError = R.string.share_local_playlist_failed
+                                } else {
+                                    ShareIntentFactory.sharePlaylistFile(
+                                        context = context,
+                                        chooserTitle = context.getString(R.string.share_playlist_chooser_title),
+                                        text = ShareMessageBuilder.localPlaylistAttachment(
+                                            template = context.getString(R.string.share_local_playlist_message),
+                                            title = result.playlist.name,
+                                            included = result.playlist.tracks.size,
+                                            excluded = result.playlist.excludedLocalCount,
+                                        ),
+                                        file = uri,
+                                        title = result.playlist.name,
+                                    )
+                                    pendingLocalShare = null
+                                    onDismiss()
+                                }
+                            }
+                        }
+                    }
+                ) {
+                    Text(stringResource(R.string.share_local_playlist_button))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingLocalShare = null }) {
+                    Text(stringResource(android.R.string.cancel))
+                }
+            },
+        )
+    }
+
+    localShareError?.let { messageRes ->
+        AlertDialog(
+            onDismissRequest = { localShareError = null },
+            title = { Text(stringResource(R.string.share_local_playlist_button)) },
+            text = { Text(stringResource(messageRes)) },
+            confirmButton = {
+                TextButton(onClick = { localShareError = null }) {
+                    Text(stringResource(android.R.string.ok))
+                }
+            },
+        )
     }
 }
