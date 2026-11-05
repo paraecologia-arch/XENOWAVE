@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "applicationId": "com.dd3boh.xenowave",
+  "channel": "beta",
+  "versionName": "0.10.3-beta.1",
+  "versionCode": 74,
+  "minSdk": 24,
+  "apkName": "XENOWAVE-0.10.3-beta.1-core.apk",
+  "sizeBytes": 14614994,
+  "sha256": "c2f0d8256909380b2967510ab8a2b2106f8297a04b92b5f93ace7837dfbf0c92",
+  "url": "https://github.com/paraecologia-arch/XENOWAVE/releases/download/v0.10.3-beta.1/XENOWAVE-0.10.3-beta.1-core.apk",
+  "publishedAt": "2026-11-04T14:00:03Z"
+}

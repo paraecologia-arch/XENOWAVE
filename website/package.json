@@ -1,0 +1,8 @@
+{
+  "name": "xenowave-download-page",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/manifest.test.js tests/page.test.js"
+  }
+}
