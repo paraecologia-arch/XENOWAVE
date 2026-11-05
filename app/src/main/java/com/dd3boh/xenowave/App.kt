@@ -47,6 +47,8 @@ import com.dd3boh.xenowave.utils.LocalArtworkPathKeyer
 import com.dd3boh.xenowave.utils.dataStore
 import com.dd3boh.xenowave.utils.get
 import com.dd3boh.xenowave.utils.reportException
+import com.dd3boh.xenowave.update.UpdateInfo
+import com.dd3boh.xenowave.update.UpdateScheduler
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.YouTubeLocale
 import com.zionhuang.kugou.KuGou
@@ -160,6 +162,10 @@ class App : Application(), SingletonImageLoader.Factory {
                         forgetAccount(this@App)
                     }
                 }
+        }
+
+        if (UpdateInfo.isSupported) {
+            UpdateScheduler.onAppStart(this)
         }
     }
 

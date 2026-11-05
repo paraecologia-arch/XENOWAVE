@@ -89,3 +89,10 @@
 ## Quality of life for logs
 -keepclasseswithmembernames class com.dd3boh.xenowave.playback.**
 -keepclasseswithmembernames class com.dd3boh.xenowave.utils.scanners.**
+
+## Updater: WorkManager builds the worker by class name and the system
+## delivers the PackageInstaller result to the manifest receiver.
+-keep class com.dd3boh.xenowave.update.UpdateWorker {
+    public <init>(android.content.Context, androidx.work.WorkerParameters);
+}
+-keep class com.dd3boh.xenowave.update.UpdateInstallReceiver { *; }

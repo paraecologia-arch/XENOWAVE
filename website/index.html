@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#0B1020">
+  <meta name="description" content="Baixe o XENOWAVE para Android e venha ouvir música comigo.">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'">
+  <title>XENOWAVE — Baixar para Android</title>
+  <link rel="icon" href="assets/xeno_launcher.png" type="image/png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="page">
+    <header class="brand">
+      <img class="brand__icon" src="assets/xeno_launcher.png" width="72" height="72" alt="">
+      <p class="brand__name">XENOWAVE</p>
+    </header>
+
+    <section class="hero" aria-labelledby="download-title">
+      <h1 id="download-title">Deseja baixar o XENOWAVE?</h1>
+      <p class="hero__lead">Venha ouvir música comigo. O XENOWAVE é um aplicativo Android para ouvir suas músicas e playlists no seu ritmo.</p>
+
+      <p class="status" id="status" role="status" aria-live="polite">Carregando informações da versão…</p>
+
+      <a class="button" id="download" href="#" aria-disabled="true" rel="noopener">Baixar para Android</a>
+
+      <p class="release" id="release" hidden></p>
+
+      <noscript>
+        <p class="notice">O JavaScript está desativado. Use o link direto da versão publicada:
+          <a href="https://github.com/paraecologia-arch/XENOWAVE/releases/download/v0.10.3-beta.2/XENOWAVE-0.10.3-beta.2-core.apk">baixar XENOWAVE 0.10.3-beta.2</a>.
+        </p>
+      </noscript>
+    </section>
+
+    <section class="steps" aria-labelledby="steps-title">
+      <h2 id="steps-title">Como instalar</h2>
+      <ol>
+        <li>Toque em <strong>Baixar para Android</strong>.</li>
+        <li>Depois de baixar, abra o arquivo e siga as instruções do Android.</li>
+        <li>Já tem o XENOWAVE? Atualize por cima, sem desinstalar. Suas músicas e dados são mantidos.</li>
+      </ol>
+    </section>
+
+    <section class="notice" aria-labelledby="permission-title">
+      <h2 id="permission-title">Autorização do Android</h2>
+      <p>O Android pode pedir autorização para instalar pelo navegador ou pelo gerenciador de arquivos. Essa permissão é diferente da autorização que o próprio XENOWAVE usa para instalar futuras atualizações.</p>
+    </section>
+
+    <section class="details" aria-labelledby="verify-title">
+      <h2 id="verify-title">Verificação</h2>
+      <p>O arquivo é o APK oficial, assinado com a mesma identidade das versões anteriores do XENOWAVE.</p>
+      <details>
+        <summary>Ver SHA-256 e versão</summary>
+        <dl>
+          <dt>Versão</dt>
+          <dd id="verify-version">—</dd>
+          <dt>Código da versão</dt>
+          <dd id="verify-code">—</dd>
+          <dt>SHA-256 do APK</dt>
+          <dd><code id="verify-sha">—</code></dd>
+        </dl>
+      </details>
+      <p class="details__link"><a href="https://github.com/paraecologia-arch/XENOWAVE/releases">Todas as versões no GitHub</a></p>
+    </section>
+
+    <footer class="footer">
+      <p>XENOWAVE é software livre, distribuído sob a licença GPL-3.0.</p>
+    </footer>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="voice_search_open">Pesquisar por voz</string>
+    <string name="voice_search_title">Fale o nome da música</string>
+    <string name="voice_search_listening">Ouvindo…</string>
+    <string name="voice_search_processing">Procurando…</string>
+    <string name="voice_search_retry">Tentar novamente</string>
+    <string name="voice_search_cancel">Cancelar</string>
+    <string name="voice_search_permission_denied">A permissão do microfone é necessária para pesquisar por voz.</string>
+    <string name="voice_search_permission_settings_hint">O acesso ao microfone está bloqueado. Você pode ativá-lo nas configurações do app ou continuar usando a busca por texto.</string>
+    <string name="voice_search_open_settings">Abrir configurações</string>
+    <string name="voice_search_busy">O reconhecimento de voz está ocupado. Tente novamente.</string>
+    <string name="voice_search_no_speech">Não ouvi o nome de uma música. Tente novamente.</string>
+    <string name="voice_search_network">O reconhecimento de voz precisa de conexão neste momento. Tente novamente.</string>
+    <string name="voice_search_unavailable">A pesquisa por voz não está disponível neste aparelho.</string>
+    <string name="voice_search_language">O reconhecimento de voz não oferece suporte ao idioma selecionado.</string>
+    <string name="voice_search_timeout">Não ouvi o nome da música a tempo. Tente novamente.</string>
+    <string name="voice_search_audio">O microfone não está disponível no momento.</string>
+    <string name="voice_search_error">Não consegui ouvir sua voz. Tente novamente.</string>
+</resources>

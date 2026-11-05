@@ -136,6 +136,8 @@ import com.dd3boh.xenowave.ui.component.rememberBottomSheetState
 import com.dd3boh.xenowave.ui.component.XenoWaveStartupGate
 import com.dd3boh.xenowave.ui.component.XenoWaveStartupSplash
 import com.dd3boh.xenowave.ui.component.shimmer.ShimmerTheme
+import com.dd3boh.xenowave.ui.dialog.ImportSharedPlaylistDialog
+import com.dd3boh.xenowave.ui.dialog.UpdatePromptHost
 import com.dd3boh.xenowave.ui.menu.BottomSheetMenu
 import com.dd3boh.xenowave.ui.menu.MenuState
 import com.dd3boh.xenowave.ui.player.BottomSheetPlayer
@@ -180,6 +182,7 @@ import com.dd3boh.xenowave.ui.screens.settings.LyricsSettings
 import com.dd3boh.xenowave.ui.screens.settings.PlayerSettings
 import com.dd3boh.xenowave.ui.screens.settings.SettingsScreen
 import com.dd3boh.xenowave.ui.screens.settings.StorageSettings
+import com.dd3boh.xenowave.ui.screens.settings.UpdateSettingsScreen
 import com.dd3boh.xenowave.ui.theme.ColorSaver
 import com.dd3boh.xenowave.ui.theme.DefaultThemeColor
 import com.dd3boh.xenowave.ui.theme.XenoWaveTheme
@@ -193,6 +196,9 @@ import com.dd3boh.xenowave.utils.coilCoroutine
 import com.dd3boh.xenowave.utils.lmScannerCoroutine
 import com.dd3boh.xenowave.utils.rememberEnumPreference
 import com.dd3boh.xenowave.utils.rememberPreference
+import com.dd3boh.xenowave.sharing.PlaylistImportCoordinator
+import com.dd3boh.xenowave.sharing.SharedIntentHandler
+import com.dd3boh.xenowave.update.UpdatePromptController
 import com.valentinilk.shimmer.LocalShimmerTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.collectLatest
@@ -374,6 +380,7 @@ class MainActivity : ComponentActivity() {
                 themeColor = themeColor
             ) {
                 Log.v(MAIN_TAG, "RC-2.1")
+                UpdatePromptHost(enabled = oobeStatus >= OOBE_VERSION)
                 val density = LocalDensity.current
                 val windowsInsets = WindowInsets.systemBars
                 val bottomInset = with(density) { windowsInsets.getBottom(density).toDp() }
@@ -451,23 +458,32 @@ class MainActivity : ComponentActivity() {
                     )
 
 
-                    DisposableEffect(Unit) {
-                        val listener = Consumer<Intent> { intent ->
-                            val uri =
-                                intent.data ?: intent.extras?.getString(Intent.EXTRA_TEXT)?.toUri()
-                                ?: return@Consumer
-                            youtubeNavigator(
-                                this@MainActivity,
-                                navController,
-                                coroutineScope,
-                                playerConnection,
-                                snackbarHostState,
-                                uri
-                            )
-                        }
+                    val handleSharedIntent: suspend (Intent) -> Unit = { sharedIntent ->
+                        SharedIntentHandler.handle(
+                            context = this@MainActivity,
+                            intent = sharedIntent,
+                            navController = navController,
+                            coroutineScope = coroutineScope,
+                            playerConnection = playerConnection,
+                            snackbarHostState = snackbarHostState,
+                            onImport = PlaylistImportCoordinator::offer,
+                        )
+                    }
 
+                    DisposableEffect(navController, playerConnection) {
+                        val listener = Consumer<Intent> { sharedIntent ->
+                            coroutineScope.launch { handleSharedIntent(sharedIntent) }
+                        }
                         addOnNewIntentListener(listener)
                         onDispose { removeOnNewIntentListener(listener) }
+                    }
+
+                    var initialIntentHandled by rememberSaveable { mutableStateOf(false) }
+                    LaunchedEffect(Unit) {
+                        if (!initialIntentHandled) {
+                            initialIntentHandled = true
+                            intent?.let { handleSharedIntent(it) }
+                        }
                     }
 
                     CompositionLocalProvider(
@@ -759,6 +775,9 @@ class MainActivity : ComponentActivity() {
                                     composable("settings/experimental") {
                                         ExperimentalSettings(navController, scrollBehavior)
                                     }
+                                    composable("settings/updates") {
+                                        UpdateSettingsScreen(navController, scrollBehavior)
+                                    }
                                     composable("settings/about") {
                                         AboutScreen(navController, scrollBehavior)
                                     }
@@ -989,6 +1008,10 @@ class MainActivity : ComponentActivity() {
                             }
                             bottomSheetMenu()
 
+                            if (oobeStatus >= OOBE_VERSION) {
+                                ImportSharedPlaylistDialog()
+                            }
+
                             SnackbarHost(
                                 hostState = snackbarHostState,
                                 modifier = Modifier
@@ -1007,6 +1030,11 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        UpdatePromptController.onAppForeground(this)
     }
 
     private fun setSystemBarAppearance(isDark: Boolean) {

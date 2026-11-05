@@ -33,8 +33,8 @@ android {
         applicationId = "com.dd3boh.xenowave"
         minSdk = 24
         targetSdk = 36
-        versionCode = 71
-        versionName = "0.10.1"
+        versionCode = 75
+        versionName = "0.10.3-beta.2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -241,6 +241,7 @@ dependencies {
     implementation(libs.media3.okhttp)
     implementation(libs.media3.session)
     implementation(libs.media3.workmanager)
+    implementation(libs.work.runtime)
 
     implementation(libs.room.runtime)
     ksp(libs.room.compiler)
