@@ -3,7 +3,7 @@
     <string name="share_app_title">Share XENOWAVE</string>
     <string name="share_app_description">Invite friends to install the app</string>
     <string name="share_chooser_title">Share XENOWAVE</string>
-    <string name="share_app_message">I\'m using %1$s to listen to music. Get it here: %2$s</string>
+    <string name="share_app_message">Come listen to music with me on %1$s. Download it here: %2$s</string>
     <string name="share_playlist_chooser_title">Share playlist</string>
     <string name="share_playlist_message">Listen to my playlist \"%1$s\" on %3$s:\n%2$s\n\nGet %3$s: %4$s\n\n%5$s</string>
     <string name="share_playlist_visibility_hint">If the link does not open, the playlist owner needs to check its visibility in YouTube Music.</string>

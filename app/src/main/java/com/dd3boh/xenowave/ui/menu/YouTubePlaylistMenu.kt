@@ -261,7 +261,7 @@ fun YouTubePlaylistMenu(
                     title = playlist.title,
                     playlistUrl = playlist.shareLink,
                     appName = context.getString(R.string.app_name),
-                    downloadUrl = OfficialAppLinkProvider.RELEASES_URL,
+                    downloadUrl = OfficialAppLinkProvider.DOWNLOAD_URL,
                 ),
                 title = playlist.title,
             )

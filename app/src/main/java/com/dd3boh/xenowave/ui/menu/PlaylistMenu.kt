@@ -348,7 +348,7 @@ fun PlaylistMenu(
                         title = playlist.playlist.name,
                         playlistUrl = shareLink,
                         appName = context.getString(R.string.app_name),
-                        downloadUrl = OfficialAppLinkProvider.RELEASES_URL,
+                        downloadUrl = OfficialAppLinkProvider.DOWNLOAD_URL,
                     ),
                     title = playlist.playlist.name,
                 )

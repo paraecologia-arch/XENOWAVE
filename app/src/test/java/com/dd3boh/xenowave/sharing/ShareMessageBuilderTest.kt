@@ -23,25 +23,34 @@ class ShareMessageBuilderTest {
             title = "Favoritas",
             playlistUrl = "https://music.youtube.com/playlist?list=PL123",
             appName = "XENOWAVE",
-            downloadUrl = OfficialAppLinkProvider.RELEASES_URL,
+            downloadUrl = OfficialAppLinkProvider.DOWNLOAD_URL,
         )
         assertTrue(message.contains("https://music.youtube.com/playlist?list=PL123"))
-        assertTrue(message.contains(OfficialAppLinkProvider.RELEASES_URL))
+        assertTrue(message.contains(OfficialAppLinkProvider.DOWNLOAD_URL))
         assertTrue(message.contains("Check visibility."))
         assertFalse(message.contains("/storage/"))
     }
 
     @Test
-    fun `app invite uses the stable releases page and app name`() {
+    fun `app invite uses the simple download page and app name`() {
         val message = ShareMessageBuilder.appInvite(
             template = "Use %1\$s: %2\$s",
             appName = "XENOWAVE",
-            downloadUrl = OfficialAppLinkProvider.RELEASES_URL,
+            downloadUrl = OfficialAppLinkProvider.DOWNLOAD_URL,
         )
         assertEquals(
-            "Use XENOWAVE: ${OfficialAppLinkProvider.RELEASES_URL}",
+            "Use XENOWAVE: https://paraecologia-arch.github.io/XENOWAVE/",
             message,
         )
+    }
+
+    @Test
+    fun `download destination is an https page on the official host`() {
+        val url = java.net.URI(OfficialAppLinkProvider.DOWNLOAD_URL)
+        assertEquals("https", url.scheme)
+        assertEquals("paraecologia-arch.github.io", url.host)
+        assertEquals("/XENOWAVE/", url.path)
+        assertFalse(OfficialAppLinkProvider.DOWNLOAD_URL.contains("releases"))
     }
 
     @Test

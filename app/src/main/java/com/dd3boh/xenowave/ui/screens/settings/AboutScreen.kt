@@ -223,7 +223,7 @@ fun AboutScreen(
                             text = ShareMessageBuilder.appInvite(
                                 template = context.getString(R.string.share_app_message),
                                 appName = context.getString(R.string.app_name),
-                                downloadUrl = OfficialAppLinkProvider.RELEASES_URL,
+                                downloadUrl = OfficialAppLinkProvider.DOWNLOAD_URL,
                             ),
                             title = context.getString(R.string.share_app_title),
                         )

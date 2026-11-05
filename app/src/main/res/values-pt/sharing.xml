@@ -3,7 +3,7 @@
     <string name="share_app_title">Compartilhar o XENOWAVE</string>
     <string name="share_app_description">Convide amigos para instalar a aplicação</string>
     <string name="share_chooser_title">Compartilhar XENOWAVE</string>
-    <string name="share_app_message">Estou a usar o %1$s para ouvir música. Obtenha-o aqui: %2$s</string>
+    <string name="share_app_message">Venha ouvir música comigo no %1$s. Baixe aqui: %2$s</string>
     <string name="share_playlist_chooser_title">Compartilhar playlist</string>
     <string name="share_playlist_message">Ouça a minha playlist \"%1$s\" no %3$s:\n%2$s\n\nObtenha o %3$s: %4$s\n\n%5$s</string>
     <string name="share_playlist_visibility_hint">Se o link não abrir, o dono da playlist precisa de verificar a visibilidade no YouTube Music.</string>
