@@ -1,7 +1,9 @@
 package com.dd3boh.xenowave.playback.stream
 
 import com.dd3boh.xenowave.constants.AudioQuality
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -18,6 +20,7 @@ import org.junit.Test
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
+import kotlin.coroutines.CoroutineContext
 
 class StreamResolutionCoordinatorTest {
 
@@ -133,6 +136,99 @@ class StreamResolutionCoordinatorTest {
     }
 
     @Test
+    fun expiredResultIsRenewedWhenWaiterResumesInline() = runBlocking {
+        val dispatcher = QueuedDispatcher()
+        val resolutionScope = CoroutineScope(SupervisorJob() + dispatcher)
+        val nowMs = AtomicLong(0L)
+        val calls = AtomicInteger()
+        val events = mutableListOf<StreamResolutionEvent>()
+        val coordinator = newCoordinator(
+            resolver = { mediaId ->
+                val call = calls.incrementAndGet()
+                stream(mediaId, expiresAtEpochMs = if (call == 1) 10L else 20L)
+            },
+            nowMs = nowMs::get,
+            onEvent = events::add,
+            scope = resolutionScope,
+        )
+
+        try {
+            // Unconfined resumes the waiter inside complete(), before the producer returns.
+            val renewal = async(Dispatchers.Unconfined) {
+                coordinator.resolve("mediaId", AudioQuality.AUTO, false).getOrThrow()
+                nowMs.set(11L)
+                coordinator.resolve("mediaId", AudioQuality.AUTO, false).getOrThrow()
+            }
+            dispatcher.runAll()
+
+            assertEquals(2, calls.get())
+            assertEquals(20L, renewal.await().expiresAtEpochMs)
+            assertEquals(
+                listOf("Started", "Succeeded", "Expired", "Started", "Succeeded"),
+                events.map { it.javaClass.simpleName },
+            )
+        } finally {
+            resolutionScope.cancel()
+        }
+    }
+
+    @Test
+    fun failedResolutionCanBeRetriedWhenWaiterResumesInline() = runBlocking {
+        val dispatcher = QueuedDispatcher()
+        val resolutionScope = CoroutineScope(SupervisorJob() + dispatcher)
+        val calls = AtomicInteger()
+        val coordinator = newCoordinator(
+            resolver = { mediaId ->
+                check(calls.incrementAndGet() > 1) { "resolver unavailable" }
+                stream(mediaId)
+            },
+            scope = resolutionScope,
+        )
+
+        try {
+            val retry = async(Dispatchers.Unconfined) {
+                assertTrue(coordinator.resolve("mediaId", AudioQuality.AUTO, false).isFailure)
+                coordinator.resolve("mediaId", AudioQuality.AUTO, false)
+            }
+            dispatcher.runAll()
+
+            assertEquals(2, calls.get())
+            assertTrue(retry.await().isSuccess)
+        } finally {
+            resolutionScope.cancel()
+        }
+    }
+
+    @Test
+    fun cancellingScopeBeforeResolutionStartsReleasesWaiter() = runBlocking {
+        val dispatcher = QueuedDispatcher()
+        val resolutionScope = CoroutineScope(SupervisorJob() + dispatcher)
+        val calls = AtomicInteger()
+        val coordinator = newCoordinator(
+            resolver = { mediaId ->
+                calls.incrementAndGet()
+                stream(mediaId)
+            },
+            scope = resolutionScope,
+        )
+        val waiter = async(Dispatchers.Unconfined) {
+            runCatching { coordinator.resolve("mediaId", AudioQuality.AUTO, false) }
+        }
+
+        try {
+            resolutionScope.cancel()
+            dispatcher.runAll()
+
+            assertTrue("Cancellation must release the waiting caller", waiter.isCompleted)
+            assertTrue(waiter.await().exceptionOrNull() is CancellationException)
+            assertEquals(0, calls.get())
+        } finally {
+            waiter.cancel()
+            resolutionScope.cancel()
+        }
+    }
+
+    @Test
     fun failedResolutionCanBeRetriedLater() = runBlocking {
         val calls = AtomicInteger()
         var nextCallFails = true
@@ -208,6 +304,7 @@ class StreamResolutionCoordinatorTest {
         resolver: suspend (String) -> ResolvedStream,
         nowMs: () -> Long = { 0L },
         onEvent: (StreamResolutionEvent) -> Unit = {},
+        scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
     ) = StreamResolutionCoordinator(
         resolver = object : StreamResolver {
             override suspend fun resolve(
@@ -217,10 +314,24 @@ class StreamResolutionCoordinatorTest {
                 playlistId: String?,
             ): Result<ResolvedStream> = runCatching { resolver(videoId) }
         },
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+        scope = scope,
         nowMs = nowMs,
         onEvent = onEvent,
     )
+
+    private class QueuedDispatcher : CoroutineDispatcher() {
+        private val tasks = ArrayDeque<Runnable>()
+
+        override fun dispatch(context: CoroutineContext, block: Runnable) {
+            tasks.addLast(block)
+        }
+
+        fun runAll() {
+            while (tasks.isNotEmpty()) {
+                tasks.removeFirst().run()
+            }
+        }
+    }
 
     private fun asyncCall(
         coordinator: StreamResolutionCoordinator,

@@ -121,8 +121,15 @@ class StreamResolutionCoordinator(
                         )
                     )
                 }
-            newResolution.complete(result)
+            // A resumed caller may immediately request a renewal or retry.
             inFlightResolutions.remove(videoId, newResolution)
+            newResolution.complete(result)
+        }.invokeOnCompletion { cause ->
+            if (cause != null) {
+                // The scope may be cancelled before the launch body ever runs.
+                inFlightResolutions.remove(videoId, newResolution)
+                newResolution.completeExceptionally(cause)
+            }
         }
 
         return newResolution.await()
