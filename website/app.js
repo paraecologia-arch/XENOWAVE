@@ -3,13 +3,13 @@ import { formatBytes, formatDate, ManifestError, validateManifest } from "./mani
 // Public fallback, kept only for a failed manifest request. It is a real,
 // verified release, not a placeholder or a floating "latest" link.
 const FALLBACK = {
-  versionName: "0.10.3-beta.2",
-  versionCode: 75,
+  versionName: "0.10.3-beta.3",
+  versionCode: 76,
   minSdk: 24,
-  sizeBytes: 14614994,
-  sha256: "4f310b510c15bdcd845a55d4292195c9c051a9fd3a7a2a5d66edf03465fdb3df",
-  url: "https://github.com/paraecologia-arch/XENOWAVE/releases/download/v0.10.3-beta.2/XENOWAVE-0.10.3-beta.2-core.apk",
-  publishedAt: "2026-11-05T15:40:42Z",
+  sizeBytes: 19774116,
+  sha256: "a1619a466293a4494e54a3502334d09c7d2bfcecb3e8b6d4976958b87276cd48",
+  url: "https://github.com/paraecologia-arch/XENOWAVE/releases/download/v0.10.3-beta.3/XENOWAVE-0.10.3-beta.3-core.apk",
+  publishedAt: "2026-11-08T02:35:40Z",
 };
 
 const button = document.querySelector("#download");
