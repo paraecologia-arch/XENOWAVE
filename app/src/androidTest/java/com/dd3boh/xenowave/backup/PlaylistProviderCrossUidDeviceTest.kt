@@ -26,12 +26,12 @@ import java.util.UUID
 /**
  * Cross-UID FileProvider proof.
  *
- * The owner app creates the export with the production exporter and sends an
- * explicit broadcast with FLAG_GRANT_READ_URI_PERMISSION to the test-only
- * receiver declared by the instrumentation APK, which runs under a different
- * UID. The same broadcast without the flag must be denied, which proves that
- * the read depends on the owner's per-URI grant and not on ambient access.
- * The last probe runs after an explicit revoke.
+ * The owner app creates the export with the production exporter and starts
+ * the test-only activity declared by the instrumentation APK, which runs
+ * under a different UID, with FLAG_GRANT_READ_URI_PERMISSION — the same grant
+ * path used by a share intent. Starting it without the flag must be denied,
+ * which proves that the read depends on the owner's per-URI grant and not on
+ * ambient access. The last probe runs after an explicit revoke.
  */
 @RunWith(AndroidJUnit4::class)
 class PlaylistProviderCrossUidDeviceTest {
@@ -135,14 +135,15 @@ class PlaylistProviderCrossUidDeviceTest {
 
     private fun probe(uri: Uri, label: String, grantRead: Boolean): String {
         val token = "$label-${UUID.randomUUID()}"
-        val intent = Intent(ProviderProbeReceiver.ACTION_PROBE)
-            .setClassName(testPackage, ProviderProbeReceiver::class.java.name)
+        val intent = Intent(Intent.ACTION_VIEW)
+            .setClassName(testPackage, ProviderProbeActivity::class.java.name)
             .setData(uri)
-            .putExtra(ProviderProbeReceiver.EXTRA_TOKEN, token)
+            .putExtra(ProviderProbeActivity.EXTRA_TOKEN, token)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         if (grantRead) {
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        targetContext.sendBroadcast(intent)
+        targetContext.startActivity(intent)
 
         val deadline = SystemClock.uptimeMillis() + 15_000
         var lastLog = ""
@@ -157,7 +158,7 @@ class PlaylistProviderCrossUidDeviceTest {
 
     private fun readProbeLog(): String {
         val pfd = InstrumentationRegistry.getInstrumentation().uiAutomation
-            .executeShellCommand("logcat -d -v brief -s ${ProviderProbeReceiver.TAG}:I")
+            .executeShellCommand("logcat -d -v brief -s ${ProviderProbeActivity.TAG}:I")
         return ParcelFileDescriptor.AutoCloseInputStream(pfd).bufferedReader().use { it.readText() }
     }
 
