@@ -70,40 +70,46 @@ class PlaylistProviderCrossUidDeviceTest {
 
     @Test
     fun ownerGrantAllowsCrossUidReadAndRevocationDeniesIt() {
+        val appUid = packageUid(targetContext.packageName)
+        val probeUid = packageUid(testPackage)
+        val diagnostics =
+            "appUid=$appUid probeUid=$probeUid instrumentationUid=${Process.myUid()}"
+        assertNotEquals(
+            "the probe must live in another package ($diagnostics)",
+            targetContext.packageName,
+            testPackage,
+        )
+
         val (ungrantedUri, _) = exportFixture("never-granted")
         val (grantedUri, grantedJson) = exportFixture("owner-grant")
 
         revoke(ungrantedUri)
         revoke(grantedUri)
-        assertEquals(
-            "revocation must clear the read grant for the probe UID",
-            0,
-            readGrantFlags(grantedUri),
-        )
 
         val noGrant = launchAndAwait(ungrantedUri, "no-grant")
-        assertTrue("expected denial without a previous grant: $noGrant", noGrant.contains("DENIED"))
+        assertTrue(
+            "expected denial without a previous grant " +
+                "($diagnostics, flags=${readGrantFlags(ungrantedUri)}): $noGrant",
+            noGrant.contains("DENIED"),
+        )
 
         targetContext.grantUriPermission(
             testPackage,
             grantedUri,
             Intent.FLAG_GRANT_READ_URI_PERMISSION,
         )
-        assertEquals(
-            "the explicit grant must be registered for the probe UID",
-            Intent.FLAG_GRANT_READ_URI_PERMISSION,
-            readGrantFlags(grantedUri),
-        )
         val granted = launchAndAwait(grantedUri, "granted")
         val expectedBytes = grantedJson.toByteArray(Charsets.UTF_8)
         assertTrue(
-            "expected real read through ContentResolver: $granted",
+            "expected real read through ContentResolver " +
+                "($diagnostics, flags=${readGrantFlags(grantedUri)}): $granted",
             granted.contains("OK bytes=${expectedBytes.size}") &&
                 granted.contains("sha256=${sha256(expectedBytes)}"),
         )
-        val probeUid = Regex("uid=(\\d+)").find(granted)?.groupValues?.get(1)?.toInt()
-        assertNotNull("probe must report its UID: $granted", probeUid)
-        assertNotEquals("probe must run in a different UID", Process.myUid(), probeUid)
+        val loggedUid = Regex("uid=(\\d+)").find(granted)?.groupValues?.get(1)?.toInt()
+        assertNotNull("probe must report its UID: $granted", loggedUid)
+        assertEquals("probe must run with the instrumentation package UID", probeUid, loggedUid)
+        assertNotEquals("probe must run in a different UID than the app", appUid, loggedUid)
         assertTrue(
             "probe must run in the instrumentation package: $granted",
             granted.contains("package=$testPackage"),
@@ -111,7 +117,11 @@ class PlaylistProviderCrossUidDeviceTest {
 
         revoke(grantedUri)
         val revoked = launchAndAwait(grantedUri, "revoked")
-        assertTrue("expected denial after real revocation: $revoked", revoked.contains("DENIED"))
+        assertTrue(
+            "expected denial after real revocation " +
+                "($diagnostics, flags=${readGrantFlags(grantedUri)}): $revoked",
+            revoked.contains("DENIED"),
+        )
     }
 
     private fun exportFixture(name: String): Pair<Uri, String> {
@@ -152,15 +162,16 @@ class PlaylistProviderCrossUidDeviceTest {
     }
 
     @Suppress("DEPRECATION")
-    private fun readGrantFlags(uri: Uri): Int {
-        val probeUid = targetContext.packageManager.getApplicationInfo(testPackage, 0).uid
-        return targetContext.checkUriPermission(
+    private fun packageUid(packageName: String): Int =
+        targetContext.packageManager.getApplicationInfo(packageName, 0).uid
+
+    private fun readGrantFlags(uri: Uri): Int =
+        targetContext.checkUriPermission(
             uri,
             Process.myPid(),
-            probeUid,
+            packageUid(testPackage),
             Intent.FLAG_GRANT_READ_URI_PERMISSION,
         ) and Intent.FLAG_GRANT_READ_URI_PERMISSION
-    }
 
     private fun launchAndAwait(uri: Uri, label: String): String {
         val token = "$label-${UUID.randomUUID()}"
