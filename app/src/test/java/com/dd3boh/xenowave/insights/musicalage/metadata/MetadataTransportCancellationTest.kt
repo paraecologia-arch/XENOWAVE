@@ -82,18 +82,25 @@ class MetadataTransportCancellationTest {
 
     @Test
     fun `total deadline closes a slow response socket`() = runBlocking {
+        // The deadline has to be long enough for a cold JVM to open the local
+        // socket and send the headers on a loaded CI runner; the server never
+        // answers, so the deadline is still the only way this call can finish.
         try {
             transport().execute(
                 MetadataRequest("http://127.0.0.1:${server.port}/ws/2/slow"),
                 maxResponseBytes = 1_048_576L,
-                timeoutMillis = 400L,
+                timeoutMillis = 5_000L,
             )
             throw AssertionError("expected MetadataTransportException")
         } catch (_: MetadataTransportException) {
             // Expected.
         }
 
-        val closed = server.clientClosed.await(10, TimeUnit.SECONDS)
+        assertTrue(
+            "server did not receive the request before the deadline",
+            server.requestRead.await(5, TimeUnit.SECONDS),
+        )
+        val closed = server.clientClosed.await(15, TimeUnit.SECONDS)
         assertTrue(
             "server did not observe client close after deadline (closed=$closed)",
             closed,
