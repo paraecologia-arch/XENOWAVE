@@ -10,10 +10,10 @@
     </queries>
 
     <application>
-        <!-- Test-only hosts. They live in the instrumentation APK, not in the app. -->
-        <activity
-            android:name="com.dd3boh.xenowave.backup.ProviderProbeActivity"
+        <!-- Test-only host. It lives in the instrumentation APK, not in the app. -->
+        <receiver
+            android:name="com.dd3boh.xenowave.backup.ProviderProbeReceiver"
             android:exported="true"
-            android:theme="@android:style/Theme.Material.Light.NoActionBar" />
+            android:enabled="true" />
     </application>
 </manifest>

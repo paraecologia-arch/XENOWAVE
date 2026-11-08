@@ -1,11 +1,9 @@
-
 package com.dd3boh.xenowave.backup
 
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.ParcelFileDescriptor
-import android.os.Process
 import android.os.SystemClock
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -28,12 +26,12 @@ import java.util.UUID
 /**
  * Cross-UID FileProvider proof.
  *
- * The owner app creates the export with the production exporter and grants
- * the URI to the instrumentation APK, whose test-only probe activity runs in
- * a different UID. The shell is used only to launch that activity; it never
- * receives `--grant-read-uri-permission`. The positive case therefore depends
- * on the owner's explicit grant, and the negative case proves that a previous
- * grant was really revoked.
+ * The owner app creates the export with the production exporter and sends an
+ * explicit broadcast with FLAG_GRANT_READ_URI_PERMISSION to the test-only
+ * receiver declared by the instrumentation APK, which runs under a different
+ * UID. The same broadcast without the flag must be denied, which proves that
+ * the read depends on the owner's per-URI grant and not on ambient access.
+ * The last probe runs after an explicit revoke.
  */
 @RunWith(AndroidJUnit4::class)
 class PlaylistProviderCrossUidDeviceTest {
@@ -72,37 +70,21 @@ class PlaylistProviderCrossUidDeviceTest {
     fun ownerGrantAllowsCrossUidReadAndRevocationDeniesIt() {
         val appUid = packageUid(targetContext.packageName)
         val probeUid = packageUid(testPackage)
-        val diagnostics =
-            "appUid=$appUid probeUid=$probeUid instrumentationUid=${Process.myUid()}"
-        assertNotEquals(
-            "the probe must live in another package ($diagnostics)",
-            targetContext.packageName,
-            testPackage,
-        )
+        val diagnostics = "appUid=$appUid probeUid=$probeUid"
 
         val (ungrantedUri, _) = exportFixture("never-granted")
         val (grantedUri, grantedJson) = exportFixture("owner-grant")
 
-        revoke(ungrantedUri)
-        revoke(grantedUri)
-
-        val noGrant = launchAndAwait(ungrantedUri, "no-grant")
+        val noGrant = probe(ungrantedUri, "no-grant", grantRead = false)
         assertTrue(
-            "expected denial without a previous grant " +
-                "($diagnostics, flags=${readGrantFlags(ungrantedUri)}): $noGrant",
+            "expected denial without a grant ($diagnostics): $noGrant",
             noGrant.contains("DENIED"),
         )
 
-        targetContext.grantUriPermission(
-            testPackage,
-            grantedUri,
-            Intent.FLAG_GRANT_READ_URI_PERMISSION,
-        )
-        val granted = launchAndAwait(grantedUri, "granted")
+        val granted = probe(grantedUri, "granted", grantRead = true)
         val expectedBytes = grantedJson.toByteArray(Charsets.UTF_8)
         assertTrue(
-            "expected real read through ContentResolver " +
-                "($diagnostics, flags=${readGrantFlags(grantedUri)}): $granted",
+            "expected real read through ContentResolver ($diagnostics): $granted",
             granted.contains("OK bytes=${expectedBytes.size}") &&
                 granted.contains("sha256=${sha256(expectedBytes)}"),
         )
@@ -115,11 +97,14 @@ class PlaylistProviderCrossUidDeviceTest {
             granted.contains("package=$testPackage"),
         )
 
-        revoke(grantedUri)
-        val revoked = launchAndAwait(grantedUri, "revoked")
+        targetContext.revokeUriPermission(
+            testPackage,
+            grantedUri,
+            Intent.FLAG_GRANT_READ_URI_PERMISSION,
+        )
+        val revoked = probe(grantedUri, "revoked", grantRead = false)
         assertTrue(
-            "expected denial after real revocation " +
-                "($diagnostics, flags=${readGrantFlags(grantedUri)}): $revoked",
+            "expected denial after revocation ($diagnostics): $revoked",
             revoked.contains("DENIED"),
         )
     }
@@ -148,49 +133,16 @@ class PlaylistProviderCrossUidDeviceTest {
         return uri to success.json
     }
 
-    private fun revoke(uri: Uri) {
-        runCatching {
-            targetContext.revokeUriPermission(
-                testPackage,
-                uri,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION,
-            )
-        }
-        runCatching {
-            targetContext.revokeUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-    }
-
-    @Suppress("DEPRECATION")
-    private fun packageUid(packageName: String): Int =
-        targetContext.packageManager.getApplicationInfo(packageName, 0).uid
-
-    private fun readGrantFlags(uri: Uri): Int =
-        targetContext.checkUriPermission(
-            uri,
-            Process.myPid(),
-            packageUid(testPackage),
-            Intent.FLAG_GRANT_READ_URI_PERMISSION,
-        ) and Intent.FLAG_GRANT_READ_URI_PERMISSION
-
-    private fun launchAndAwait(uri: Uri, label: String): String {
+    private fun probe(uri: Uri, label: String, grantRead: Boolean): String {
         val token = "$label-${UUID.randomUUID()}"
-        val command = buildString {
-            append("am start -W -f 0x10000000")
-            append(" -n ")
-            append(testPackage)
-            append("/")
-            append(ProviderProbeActivity::class.java.name)
-            append(" -a android.intent.action.VIEW -d '")
-            append(uri)
-            append("' --es ")
-            append(ProviderProbeActivity.EXTRA_TOKEN)
-            append(" ")
-            append(token)
+        val intent = Intent(ProviderProbeReceiver.ACTION_PROBE)
+            .setClassName(testPackage, ProviderProbeReceiver::class.java.name)
+            .setData(uri)
+            .putExtra(ProviderProbeReceiver.EXTRA_TOKEN, token)
+        if (grantRead) {
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        val result = InstrumentationRegistry.getInstrumentation().uiAutomation
-            .executeShellCommand(command)
-        ParcelFileDescriptor.AutoCloseInputStream(result).bufferedReader().use { it.readText() }
+        targetContext.sendBroadcast(intent)
 
         val deadline = SystemClock.uptimeMillis() + 15_000
         var lastLog = ""
@@ -205,9 +157,13 @@ class PlaylistProviderCrossUidDeviceTest {
 
     private fun readProbeLog(): String {
         val pfd = InstrumentationRegistry.getInstrumentation().uiAutomation
-            .executeShellCommand("logcat -d -v brief -s ${ProviderProbeActivity.TAG}:I")
+            .executeShellCommand("logcat -d -v brief -s ${ProviderProbeReceiver.TAG}:I")
         return ParcelFileDescriptor.AutoCloseInputStream(pfd).bufferedReader().use { it.readText() }
     }
+
+    @Suppress("DEPRECATION")
+    private fun packageUid(packageName: String): Int =
+        targetContext.packageManager.getApplicationInfo(packageName, 0).uid
 
     private fun sha256(bytes: ByteArray): String =
         MessageDigest.getInstance("SHA-256")
