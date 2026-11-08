@@ -75,6 +75,11 @@ class PlaylistProviderCrossUidDeviceTest {
 
         revoke(ungrantedUri)
         revoke(grantedUri)
+        assertEquals(
+            "revocation must clear the read grant for the probe UID",
+            0,
+            readGrantFlags(grantedUri),
+        )
 
         val noGrant = launchAndAwait(ungrantedUri, "no-grant")
         assertTrue("expected denial without a previous grant: $noGrant", noGrant.contains("DENIED"))
@@ -83,6 +88,11 @@ class PlaylistProviderCrossUidDeviceTest {
             testPackage,
             grantedUri,
             Intent.FLAG_GRANT_READ_URI_PERMISSION,
+        )
+        assertEquals(
+            "the explicit grant must be registered for the probe UID",
+            Intent.FLAG_GRANT_READ_URI_PERMISSION,
+            readGrantFlags(grantedUri),
         )
         val granted = launchAndAwait(grantedUri, "granted")
         val expectedBytes = grantedJson.toByteArray(Charsets.UTF_8)
@@ -139,6 +149,17 @@ class PlaylistProviderCrossUidDeviceTest {
         runCatching {
             targetContext.revokeUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun readGrantFlags(uri: Uri): Int {
+        val probeUid = targetContext.packageManager.getApplicationInfo(testPackage, 0).uid
+        return targetContext.checkUriPermission(
+            uri,
+            Process.myPid(),
+            probeUid,
+            Intent.FLAG_GRANT_READ_URI_PERMISSION,
+        ) and Intent.FLAG_GRANT_READ_URI_PERMISSION
     }
 
     private fun launchAndAwait(uri: Uri, label: String): String {

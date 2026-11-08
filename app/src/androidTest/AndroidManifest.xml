@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!--
+      The probe runs in the instrumentation package UID, so it must be able to
+      resolve the provider authority of the app under test on Android 11+.
+      androidTest only runs against the debug variant, hence the fixed suffix.
+    -->
+    <queries>
+        <provider android:authorities="com.dd3boh.xenowave.debug.FileProvider" />
+    </queries>
+
     <application>
         <!-- Test-only hosts. They live in the instrumentation APK, not in the app. -->
         <activity
