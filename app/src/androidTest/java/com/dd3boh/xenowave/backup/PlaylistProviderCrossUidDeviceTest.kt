@@ -102,6 +102,11 @@ class PlaylistProviderCrossUidDeviceTest {
             grantedUri,
             Intent.FLAG_GRANT_READ_URI_PERMISSION,
         )
+        // A provider connection already acquired by the probe process stays
+        // usable after revoke (standard Android behaviour: the link is owned
+        // by the client process). A new client process must be denied, so
+        // drop the probe process before the last check.
+        forceStopProbe()
         val revoked = probe(grantedUri, "revoked", grantRead = false)
         assertTrue(
             "expected denial after revocation ($diagnostics): $revoked",
@@ -160,6 +165,12 @@ class PlaylistProviderCrossUidDeviceTest {
         val pfd = InstrumentationRegistry.getInstrumentation().uiAutomation
             .executeShellCommand("logcat -d -v brief -s ${ProviderProbeActivity.TAG}:I")
         return ParcelFileDescriptor.AutoCloseInputStream(pfd).bufferedReader().use { it.readText() }
+    }
+
+    private fun forceStopProbe() {
+        val pfd = InstrumentationRegistry.getInstrumentation().uiAutomation
+            .executeShellCommand("am force-stop $testPackage")
+        ParcelFileDescriptor.AutoCloseInputStream(pfd).bufferedReader().use { it.readText() }
     }
 
     @Suppress("DEPRECATION")
