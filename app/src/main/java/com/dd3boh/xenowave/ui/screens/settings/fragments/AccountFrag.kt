@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -26,6 +28,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import android.widget.Toast
 import com.dd3boh.xenowave.App.Companion.forgetAccount
 import com.dd3boh.xenowave.R
 import com.dd3boh.xenowave.constants.AccountChannelHandleKey
@@ -40,6 +43,8 @@ import com.dd3boh.xenowave.ui.component.SwitchPreference
 import com.dd3boh.xenowave.ui.dialog.InfoLabel
 import com.dd3boh.xenowave.ui.dialog.TextFieldDialog
 import com.dd3boh.xenowave.utils.rememberPreference
+import com.dd3boh.xenowave.utils.rememberSessionPreference
+import com.dd3boh.xenowave.utils.auth.AuthSession
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.utils.parseCookieString
 
@@ -48,12 +53,24 @@ import com.zionhuang.innertube.utils.parseCookieString
 fun ColumnScope.AccountFrag(navController: NavController) {
     val context = LocalContext.current
 
-    val (accountName, onAccountNameChange) = rememberPreference(AccountNameKey, "")
-    val (accountEmail, onAccountEmailChange) = rememberPreference(AccountEmailKey, "")
-    val (accountChannelHandle, onAccountChannelHandleChange) = rememberPreference(AccountChannelHandleKey, "")
-    val (innerTubeCookie, onInnerTubeCookieChange) = rememberPreference(InnerTubeCookieKey, "")
-    val (visitorData, onVisitorDataChange) = rememberPreference(VisitorDataKey, "")
-    val (dataSyncId, onDataSyncIdChange) = rememberPreference(DataSyncIdKey, "")
+    // Session keys are written through the same coordinator that owns logout,
+    // so a manual edit queued before logout cannot land afterwards.
+    val sessionToken = remember { AuthSession.current() }
+    val (accountName, onAccountNameChange) = rememberSessionPreference(AccountNameKey, "", sessionToken)
+    val (accountEmail, onAccountEmailChange) = rememberSessionPreference(AccountEmailKey, "", sessionToken)
+    val (accountChannelHandle, onAccountChannelHandleChange) = rememberSessionPreference(AccountChannelHandleKey, "", sessionToken)
+    val (innerTubeCookie, onInnerTubeCookieChange) = rememberSessionPreference(InnerTubeCookieKey, "", sessionToken)
+    val (visitorData, onVisitorDataChange) = rememberSessionPreference(VisitorDataKey, "", sessionToken)
+    val (dataSyncId, onDataSyncIdChange) = rememberSessionPreference(DataSyncIdKey, "", sessionToken)
+
+    // The logout state is observable: a cleanup that could not be confirmed is
+    // reported instead of silently leaving the account half removed.
+    val logoutStatus by AuthSession.status.collectAsState()
+    LaunchedEffect(logoutStatus) {
+        if (logoutStatus == AuthSession.LogoutStatus.LOGOUT_INCOMPLETE) {
+            Toast.makeText(context, R.string.logout_incomplete, Toast.LENGTH_LONG).show()
+        }
+    }
     val isLoggedIn = remember(innerTubeCookie) {
         "SAPISID" in parseCookieString(innerTubeCookie)
     }

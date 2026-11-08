@@ -17,6 +17,7 @@ import android.database.SQLException
 import android.media.audiofx.AudioEffect
 import android.net.ConnectivityManager
 import android.os.Binder
+import android.os.IBinder
 import android.util.Log
 import android.widget.Toast
 import androidx.core.content.getSystemService
@@ -65,6 +66,7 @@ import androidx.media3.session.SessionToken
 import com.dd3boh.xenowave.BuildConfig
 import com.dd3boh.xenowave.MainActivity
 import com.dd3boh.xenowave.R
+import com.dd3boh.xenowave.backup.RestoreConsumerGuard
 import com.dd3boh.xenowave.constants.AudioDecoderKey
 import com.dd3boh.xenowave.constants.AudioGaplessOffloadKey
 import com.dd3boh.xenowave.constants.AudioNormalizationKey
@@ -157,6 +159,7 @@ import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import java.time.LocalDateTime
 import javax.inject.Inject
+import javax.inject.Provider
 import kotlin.math.min
 import kotlin.math.pow
 
@@ -170,19 +173,25 @@ class MusicService : MediaLibraryService(),
     private val streamResolver: StreamResolver = InnerTubeXResolver()
 
     @Inject
-    lateinit var database: MusicDatabase
+    lateinit var databaseProvider: Provider<MusicDatabase>
+    val database: MusicDatabase by lazy { databaseProvider.get() }
     private val scope = CoroutineScope(Dispatchers.Main)
     private val offloadScope = CoroutineScope(playerCoroutine)
 
     // Critical player components
     @Inject
-    lateinit var downloadUtil: DownloadUtil
+    lateinit var downloadUtilProvider: Provider<DownloadUtil>
+    val downloadUtil: DownloadUtil by lazy { downloadUtilProvider.get() }
 
     @Inject
-    lateinit var lyricsHelper: LyricsHelper
+    lateinit var lyricsHelperProvider: Provider<LyricsHelper>
+    val lyricsHelper: LyricsHelper by lazy { lyricsHelperProvider.get() }
 
     @Inject
-    lateinit var mediaLibrarySessionCallback: MediaLibrarySessionCallback
+    lateinit var mediaLibrarySessionCallbackProvider: Provider<MediaLibrarySessionCallback>
+    val mediaLibrarySessionCallback: MediaLibrarySessionCallback by lazy {
+        mediaLibrarySessionCallbackProvider.get()
+    }
 
     private val binder = MusicBinder()
     private lateinit var connectivityManager: ConnectivityManager
@@ -195,18 +204,21 @@ class MusicService : MediaLibraryService(),
 
     @Inject
     @PlayerCache
-    lateinit var playerCache: SimpleCache
+    lateinit var playerCacheProvider: Provider<SimpleCache>
+    val playerCache: SimpleCache by lazy { playerCacheProvider.get() }
 
     @Inject
     @DownloadCache
-    lateinit var downloadCache: SimpleCache
+    lateinit var downloadCacheProvider: Provider<SimpleCache>
+    val downloadCache: SimpleCache by lazy { downloadCacheProvider.get() }
 
     lateinit var player: ExoPlayer
     private lateinit var mediaSession: MediaLibrarySession
 
     // Player components
     @Inject
-    lateinit var syncUtils: SyncUtils
+    lateinit var syncUtilsProvider: Provider<SyncUtils>
+    val syncUtils: SyncUtils by lazy { syncUtilsProvider.get() }
 
     lateinit var connectivityObserver: NetworkConnectivityObserver
     val waitingForNetworkConnection = MutableStateFlow(false)
@@ -227,17 +239,35 @@ class MusicService : MediaLibraryService(),
 
     private val normalizeFactor = MutableStateFlow(1f)
 
-    private val audioDecoder = dataStore.get(AudioDecoderKey, DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF)
-    private val isGaplessOffloadAllowed = dataStore.get(AudioGaplessOffloadKey, false)
-    val playerVolume = MutableStateFlow(dataStore.get(PlayerVolumeKey, 1f).coerceIn(0f, 1f))
+    private val audioDecoder = RestoreConsumerGuard.ifAllowed(
+        DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF,
+    ) {
+        dataStore.get(AudioDecoderKey, DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF)
+    }
+    private val isGaplessOffloadAllowed = RestoreConsumerGuard.ifAllowed(false) {
+        dataStore.get(AudioGaplessOffloadKey, false)
+    }
+    val playerVolume = MutableStateFlow(
+        RestoreConsumerGuard.ifAllowed(1f) {
+            dataStore.get(PlayerVolumeKey, 1f).coerceIn(0f, 1f)
+        }
+    )
 
     private var isAudioEffectSessionOpened = false
 
     var consecutivePlaybackErr = 0
 
+    @Volatile
+    private var initialized = false
+
     override fun onCreate() {
         Log.i(TAG, "Starting MusicService")
         super.onCreate()
+        if (!RestoreConsumerGuard.canOpenData()) {
+            Log.w(TAG, "MusicService blocked: restore state is unresolved")
+            stopSelf()
+            return
+        }
 
         player = ExoPlayer.Builder(this)
             .setMediaSourceFactory(DefaultMediaSourceFactory(createDataSourceFactory()))
@@ -283,6 +313,7 @@ class MusicService : MediaLibraryService(),
             // TODO: do i even want to have smaller art for media notification
             .setBitmapLoader(CoilBitmapLoader(this))
             .build()
+        initialized = true
 
         player.repeatMode = dataStore.get(RepeatModeKey, REPEAT_MODE_OFF)
 
@@ -1190,6 +1221,7 @@ class MusicService : MediaLibraryService(),
         session: MediaSession,
         startInForegroundRequired: Boolean,
     ) {
+        if (!initialized) return
         // FG keep alive
         if (player.isPlaying || !dataStore.get(KeepAliveKey, false)) {
             super.onUpdateNotification(session, startInForegroundRequired)
@@ -1198,6 +1230,11 @@ class MusicService : MediaLibraryService(),
 
     override fun onDestroy() {
         Log.i(TAG, "Terminating MusicService.")
+        if (!initialized) {
+            super.onDestroy()
+            Log.i(TAG, "Terminated MusicService before initialization.")
+            return
+        }
         playbackPositionPersistenceJob?.cancel()
         deInitQueue()
 
@@ -1208,10 +1245,25 @@ class MusicService : MediaLibraryService(),
         Log.i(TAG, "Terminated MusicService.")
     }
 
-    override fun onBind(intent: Intent?) = super.onBind(intent) ?: binder
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (!initialized) {
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
+        return super.onStartCommand(intent, flags, startId)
+    }
+
+    override fun onBind(intent: Intent?): IBinder? {
+        if (!initialized) return null
+        return super.onBind(intent) ?: binder
+    }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         Log.i(TAG, "onTaskRemoved called")
+        if (!initialized) {
+            stopSelf()
+            return
+        }
         if (dataStore.get(StopMusicOnTaskClearKey, true) && !dataStore.get(KeepAliveKey, false)) {
             Log.i(TAG, "onTaskRemoved kill")
             pauseAllPlayersAndStopSelf()
@@ -1221,7 +1273,10 @@ class MusicService : MediaLibraryService(),
         }
     }
 
-    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo) = mediaSession
+    override fun onGetSession(
+        controllerInfo: MediaSession.ControllerInfo,
+    ): MediaLibraryService.MediaLibrarySession? =
+        if (initialized) mediaSession else null
 
     inner class MusicBinder : Binder() {
         val service: MusicService

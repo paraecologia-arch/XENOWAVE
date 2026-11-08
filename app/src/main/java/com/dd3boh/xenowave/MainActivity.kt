@@ -127,6 +127,7 @@ import com.dd3boh.xenowave.constants.OOBE_VERSION
 import com.dd3boh.xenowave.constants.OobeStatusKey
 import com.dd3boh.xenowave.constants.PureBlackKey
 import com.dd3boh.xenowave.constants.SlimNavBarKey
+import com.dd3boh.xenowave.backup.RestoreRecoveryGate
 import com.dd3boh.xenowave.db.MusicDatabase
 import com.dd3boh.xenowave.playback.DownloadUtil
 import com.dd3boh.xenowave.playback.MediaControllerViewModel
@@ -147,11 +148,13 @@ import com.dd3boh.xenowave.ui.screens.BrowseScreen
 import com.dd3boh.xenowave.ui.screens.HistoryScreen
 import com.dd3boh.xenowave.ui.screens.HomeScreen
 import com.dd3boh.xenowave.ui.screens.LoginScreen
+import com.dd3boh.xenowave.ui.screens.RestoreRecoveryScreen
 import com.dd3boh.xenowave.ui.screens.MoodAndGenresScreen
 import com.dd3boh.xenowave.ui.screens.Screens
 import com.dd3boh.xenowave.ui.screens.SetupWizard
 import com.dd3boh.xenowave.ui.screens.StatsScreen
 import com.dd3boh.xenowave.ui.screens.YouTubeBrowseScreen
+import com.dd3boh.xenowave.insights.musicalage.ui.MusicalAgeScreen
 import com.dd3boh.xenowave.ui.screens.artist.ArtistAlbumsScreen
 import com.dd3boh.xenowave.ui.screens.artist.ArtistItemsScreen
 import com.dd3boh.xenowave.ui.screens.artist.ArtistScreen
@@ -209,14 +212,23 @@ import javax.inject.Inject
 class MainActivity : ComponentActivity() {
     val MAIN_TAG = "MainOtActivity"
 
+    // Providers keep the database (and everything that opens it) lazy until
+    // the startup restore gate is resolved. When a restore could not be
+    // proven, no Room/DataStore instance is created.
     @Inject
-    lateinit var database: MusicDatabase
+    lateinit var databaseProvider: javax.inject.Provider<MusicDatabase>
 
     @Inject
-    lateinit var downloadUtil: DownloadUtil
+    lateinit var downloadUtilProvider: javax.inject.Provider<DownloadUtil>
 
     @Inject
-    lateinit var syncUtils: SyncUtils
+    lateinit var syncUtilsProvider: javax.inject.Provider<SyncUtils>
+
+    private val database: MusicDatabase by lazy { databaseProvider.get() }
+
+    private val downloadUtil: DownloadUtil by lazy { downloadUtilProvider.get() }
+
+    private val syncUtils: SyncUtils by lazy { syncUtilsProvider.get() }
 
     lateinit var activityLauncher: ActivityLauncherHelper
     lateinit var connectivityObserver: NetworkConnectivityObserver
@@ -257,6 +269,23 @@ class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (RestoreRecoveryGate.isBlocked()) {
+            // Recovery left the live set in a state that is neither proven old
+            // nor proven new. Do not touch Room/DataStore; only the two safe
+            // exits are offered.
+            setContent {
+                RestoreRecoveryScreen(
+                    onResolved = {
+                        (application as? App)?.completeStartup()
+                        val intent = Intent(this, MainActivity::class.java)
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                        startActivity(intent)
+                        finish()
+                    }
+                )
+            }
+            return
+        }
         lifecycle.addObserver(controllerViewModel)
         controllerViewModel.addControllerCallback(lifecycle) { controller, _ ->
             playerConnection = PlayerConnection(controllerViewModel, database)
@@ -602,6 +631,9 @@ class MainActivity : ComponentActivity() {
                                     }
                                     composable("stats") {
                                         StatsScreen(navController)
+                                    }
+                                    composable("musical_age") {
+                                        MusicalAgeScreen(navController)
                                     }
                                     composable("mood_and_genres") {
                                         MoodAndGenresScreen(navController, scrollBehavior)

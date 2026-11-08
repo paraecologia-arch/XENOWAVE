@@ -45,6 +45,7 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.dd3boh.xenowave.BuildConfig
@@ -64,6 +65,7 @@ import com.dd3boh.xenowave.ui.component.ContributorType.CUSTOM
 import com.dd3boh.xenowave.ui.component.PreferenceEntry
 import com.dd3boh.xenowave.ui.component.SettingsClickToReveal
 import com.dd3boh.xenowave.ui.component.XenoBrandMark
+import com.dd3boh.xenowave.ui.component.XenoBrandWordmark
 import com.dd3boh.xenowave.ui.component.button.IconButton
 import com.dd3boh.xenowave.ui.component.button.IconLabelButton
 import com.dd3boh.xenowave.ui.icons.XenoActionIcons
@@ -124,16 +126,10 @@ fun AboutScreen(
             },
         )
 
-        Row(
-            verticalAlignment = Alignment.Top,
-        ) {
-            Text(
-                text = "XENOWAVE",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
-            )
-        }
+        XenoBrandWordmark(
+            fontSize = MaterialTheme.typography.headlineMedium.fontSize,
+            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+        )
 
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -164,6 +160,16 @@ fun AboutScreen(
                 )
             }
         }
+
+        Text(
+            text = stringResource(R.string.orbitron_license_notice),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+        )
 
         Spacer(Modifier.height(4.dp))
 

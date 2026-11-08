@@ -13,6 +13,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.dd3boh.xenowave.constants.AutoUpdateEnabledKey
 import com.dd3boh.xenowave.constants.UpdateChannelKey
+import com.dd3boh.xenowave.backup.RestoreConsumerGuard
 import com.dd3boh.xenowave.update.delta.DeltaCodec
 import com.dd3boh.xenowave.update.delta.DeltaPolicy
 import com.dd3boh.xenowave.update.delta.InstalledApkProvider
@@ -42,6 +43,11 @@ class UpdateWorker(
 
     override suspend fun doWork(): Result {
         val context = applicationContext
+        if (!RestoreConsumerGuard.canOpenData()) {
+            // A background update must not open DataStore while a restore is
+            // unresolved. Defer instead of losing or corrupting the state.
+            return Result.retry()
+        }
         if (!UpdateInfo.isSupported) return Result.success()
 
         val preferences = context.dataStore.data.first()

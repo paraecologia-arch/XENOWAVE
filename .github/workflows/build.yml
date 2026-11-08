@@ -12,12 +12,20 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
+      # Pull requests are built from the head commit, not from GitHub's
+      # synthetic merge commit, so every artifact and test result below is
+      # tied to a real commit on the working branch.
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           submodules: recursive
 
@@ -37,6 +45,9 @@ jobs:
       - name: Build XENOWAVE debug APK and run jvm tests
         run: ./gradlew assembleCoreDebug lintCoreDebug testCoreDebugUnitTest --stacktrace -DskipFormatKtlint
 
+      - name: Record built commit
+        run: git rev-parse HEAD
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
@@ -53,3 +64,131 @@ jobs:
             app/build/reports/tests/testCoreDebugUnitTest/
             app/build/test-results/testCoreDebugUnitTest/
             app/build/reports/lint-results-coreDebug.*
+
+  # Unsigned release APK for the protected local signing step. It is never
+  # published or installed as-is: the official APK is signed outside GitHub.
+  release-unsigned:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: 21
+          distribution: "temurin"
+          cache: 'gradle'
+
+      - name: Accept SDK licenses
+        run: yes | /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --licenses
+
+      - name: Install native build tools
+        run: /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager "cmake;3.31.6" "build-tools;35.0.0"
+
+      - name: Build release and validate
+        run: ./gradlew assembleCoreRelease lintCoreRelease testCoreDebugUnitTest --stacktrace -DskipFormatKtlint
+
+      - name: Read app version
+        id: app_version
+        run: |
+          VERSION_NAME=$(sed -n 's/^[[:space:]]*versionName = "\(.*\)"/\1/p' app/build.gradle.kts | head -n1)
+          VERSION_CODE=$(sed -n 's/^[[:space:]]*versionCode = \([0-9][0-9]*\)/\1/p' app/build.gradle.kts | head -n1)
+          test -n "$VERSION_NAME"
+          test -n "$VERSION_CODE"
+          echo "name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+
+      - name: Align APK for local signing
+        run: |
+          mkdir -p public-apk
+          APK=$(find app/build/outputs/apk/core/release -name '*.apk' -print -quit)
+          test -n "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -P 16 -f -v 4 "$APK" \
+            "public-apk/XENOWAVE-${{ steps.app_version.outputs.name }}-core-unsigned.apk"
+          git rev-parse HEAD > public-apk/BUILD-COMMIT.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: XENOWAVE-public-unsigned
+          path: |
+            public-apk/*.apk
+            public-apk/BUILD-COMMIT.txt
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload release validation reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xenowave-release-validation
+          path: |
+            app/build/reports/tests/testCoreDebugUnitTest/
+            app/build/test-results/testCoreDebugUnitTest/
+            app/build/reports/lint-results-coreRelease.*
+
+  # Real Android execution on a KVM-accelerated emulator. This is the
+  # instrumented suite that used to depend on the local Windows restart.
+  android-instrumented:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: 21
+          distribution: "temurin"
+          cache: 'gradle'
+
+      - name: Enable KVM group perms
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Accept SDK licenses
+        run: yes | /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --licenses
+
+      - name: Install native build tools
+        run: /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager "cmake;3.31.6" "build-tools;35.0.0"
+
+      - name: Run instrumented tests on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          emulator-boot-timeout: 900
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          script: ./gradlew connectedCoreDebugAndroidTest --stacktrace -DskipFormatKtlint
+
+      - name: Record emulator details
+        if: always()
+        run: |
+          adb shell getprop ro.build.version.sdk || true
+          adb shell getprop ro.product.cpu.abi || true
+          adb devices -l || true
+
+      - name: Upload instrumented test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xenowave-android-instrumented
+          path: |
+            app/build/reports/androidTests/connected/
+            app/build/outputs/androidTest-results/connected/
+            app/build/outputs/connected_android_test_additional_output/
+          if-no-files-found: ignore
+          retention-days: 14

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Debug-only host for instrumentation tests. Not present in release. -->
+        <activity
+            android:name="com.dd3boh.xenowave.debug.DebugRestoreRecoveryHostActivity"
+            android:exported="false"
+            android:theme="@style/Theme.XenoWave" />
+        <!-- Debug-only synthetic visual gallery. Not present in release. -->
+        <activity
+            android:name="com.dd3boh.xenowave.debug.DebugMusicalAgePreviewActivity"
+            android:exported="true"
+            android:label="DEBUG — XENOWAVE visual"
+            android:theme="@style/Theme.XenoWave" />
+    </application>
+</manifest>

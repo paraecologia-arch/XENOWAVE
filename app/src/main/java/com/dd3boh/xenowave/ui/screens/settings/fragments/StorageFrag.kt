@@ -73,6 +73,7 @@ import com.dd3boh.xenowave.utils.scanners.absoluteFilePathFromUri
 import com.dd3boh.xenowave.utils.scanners.stringFromUriList
 import com.dd3boh.xenowave.utils.scanners.uriListFromString
 import com.dd3boh.xenowave.viewmodels.BackupRestoreViewModel
+import com.dd3boh.xenowave.viewmodels.BackupRestoreState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -83,6 +84,8 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
     val context = LocalContext.current
+    val state by viewModel.state.collectAsState()
+    val busy = state is BackupRestoreState.Running
 
     val backupLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
@@ -109,7 +112,8 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
                         LocalDateTime.now().format(formatter)
                     }.backup"
                 )
-            }
+            },
+            isEnabled = !busy,
         )
     }
     Spacer(modifier = Modifier.height(16.dp))
@@ -122,8 +126,40 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
             icon = { com.dd3boh.xenowave.ui.icons.XenoIcon(icon = com.dd3boh.xenowave.ui.icons.XenoSystemIcons.Restore, contentDescription = null) },
             onClick = {
                 restoreLauncher.launch(arrayOf("application/octet-stream"))
-            }
+            },
+            isEnabled = !busy,
         )
+    }
+
+    if (busy) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            CircularProgressIndicator(modifier = Modifier.size(20.dp))
+            Text(stringResource(R.string.backup_restore_running))
+            TextButton(onClick = viewModel::cancel) {
+                Text(stringResource(android.R.string.cancel))
+            }
+        }
+    }
+
+    when (val current = state) {
+        is BackupRestoreState.Failed -> InfoLabel(
+            text = current.message ?: stringResource(R.string.restore_failed),
+            isError = true,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        )
+
+        BackupRestoreState.Completed -> InfoLabel(
+            text = stringResource(R.string.backup_restore_complete),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        )
+
+        else -> Unit
     }
 }
 

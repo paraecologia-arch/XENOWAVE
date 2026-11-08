@@ -49,6 +49,8 @@ fun BackupAndRestore(
     ) {
         BackupAndRestoreFrag(viewModel)
         Spacer(modifier = Modifier.height(16.dp))
+        InfoLabel(stringResource(R.string.backup_excludes_session))
+        Spacer(modifier = Modifier.height(16.dp))
         InfoLabel(stringResource(R.string.import_innertune_tooltip))
         Spacer(modifier = Modifier.height(8.dp))
         InfoLabel(stringResource(R.string.restore_lm_tooltip))

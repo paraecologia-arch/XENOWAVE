@@ -15,18 +15,20 @@ This document is the canonical brand specification for XENOWAVE. The identity de
 - **Visual language:** futuristic, technological, spatial, premium, and clean
 - **Forbidden character:** childish, caricature-like, generic, or excessively gamer-like treatments
 
-The official visual source is the Master Visual Reference described below. It must be used exactly as supplied. The complete reference panel must not be used directly as a launcher icon.
+The official logo and alien symbol source is the Master Visual Reference described below. It must be used exactly as supplied. On 2026-11-06, the brand owner confirmed this artwork as official and instructed removal of the previous composite reference panel. That panel is retired and must not guide new work or replace the implemented interface.
 
 ## Master Visual Reference
 
-- Path: `docs/brand/references/xenowave_master_reference.png`
+- Path: `docs/brand/references/xenowave_launcher_master.png`
 - Format: PNG
-- Dimensions: 1536 x 1024
-- SHA-256: `7507bc9725acd7db56f5458f241a057166163db84bbf9c7a4b423d703276849b`
+- Dimensions: 1254 x 1254
+- SHA-256: `9a53596d285ebc048b945eee1559bdcad198860686e3c4211cf3206f0f91dc7b`
 
 The file must not be modified, overwritten, redrawn, reinterpreted, vectorized, color-graded, cropped, or used to generate another visual reference. Derivative launcher, monochrome, splash, and store assets require explicit approval after the master reference has been examined.
 
 `docs/brand/assets/` is reserved for approved brand assets. No graphical placeholder may be created there.
+
+On 2026-11-06, the brand owner explicitly approved the youthful, mature and veteran ET derivatives and the portrait/square musical-age card compositions in `../../../IDADE-MUSICAL-XENOWAVE-2026-11-06/ARTES-ETAPA-5-PREVIAS/`. Reuse those v1 assets as the visual baseline for phase 5, after phase 4 security review. This approval permits those separate character derivatives for the musical-age presentation/cards; the official master remains preserved. The historical PREVIAS folder name does not mean visual approval is still pending. Example ages are illustrative, and this is not publication authorization or approval of an unimplemented animation.
 
 ## Canonical palette
 
@@ -75,7 +77,19 @@ The approved families are:
 - **Orbitron:** titles, brand communication, and emphasis elements.
 - **Inter:** interface text, controls, and functional reading.
 
-Technical font integration remains pending. Do not download or embed fonts while that integration is unspecified. Until integration is approved, the existing functional Material typography remains in use. The official logo wordmark must not be reconstructed by typing `XENOWAVE` in Orbitron.
+On 2026-11-06, the brand owner approved Orbitron as shown in the XENOWAVE name preview (weight 500, letter spacing 0.14 em). Apply this decision to the brand name wherever used in the app, icon artwork and sharing card during phase 5, after the mandatory phase 4 security review. The approved alien master must not be redrawn. This supersedes the earlier prohibition on composing the name in Orbitron.
+
+Technical font integration remains pending until phase 5; keep the current functional Material typography during phase 3. Check the actual font file and license before bundling. Do not replace interface reading/control typography indiscriminately. The Android launcher controls the font of its own label below the icon; distinguish that system label from lettering in icon artwork.
+
+### Phase 5 typography implementation (2026-11-07)
+
+- Orbitron Medium (weight 500, no variable axis) is bundled at `app/src/main/res/font/orbitron_medium.ttf`. The approved file is 17,800 bytes, SHA-256 `e1dd2875a4cf1711615b7bc7eb2ae8d05bef3861f87a7fdd847a78199169b458`.
+- The OFL text is kept at `app/src/main/assets/licenses/OFL-ORBITRON.txt` and `docs/brand/fonts/OFL-ORBITRON.txt`. Provenance is recorded in `docs/brand/fonts/README.md`.
+- The About screen shows the attribution “Orbitron Medium · The Orbitron Project Authors · SIL Open Font License 1.1”.
+- The wordmark uses `XenoWaveWordmarkStyle`: Orbitron Medium, weight 500, 0.14 em tracking. It is applied to the custom startup splash, the About screen, the musical-age result card and the exported PNG card.
+- Functional reading text, menus, controls and diagnostics keep the existing Material typography. Orbitron is not applied to those surfaces.
+- The launcher artwork remains the official ET-only mark and contains no drawn product name. Android draws the label `XENOWAVE` below the icon with its own launcher font; the app cannot change that label font. The API 31+ system splash now uses the official ET foreground on `#0B1020`; it does not attempt to add a wordmark inside the masked splash icon.
+- The approved master remains unchanged at `docs/brand/references/xenowave_launcher_master.png` (SHA-256 `9a53596d285ebc048b945eee1559bdcad198860686e3c4211cf3206f0f91dc7b`).
 
 ## Verbal identity
 
@@ -153,7 +167,7 @@ Blind global replacement of `OuterTune` remains forbidden for licenses, copyrigh
 3. Reserve cyan for signal, selection, focus, or a single controlled emphasis.
 4. Use purple only as restrained support.
 5. Preserve text contrast and non-color state indicators.
-6. Orbitron and Inter are the approved families, but their technical integration remains pending; continue using the current Material implementation until approved.
+6. Orbitron is approved for the XENOWAVE name; implementation is scheduled for phase 5. Inter remains registered for interface typography, with integration pending. Continue using the current Material implementation during phase 3.
 7. Do not invent logo artwork or substitute an icon.
 8. Keep streaming, download, library, login, navigation, and persistence behavior unchanged.
 

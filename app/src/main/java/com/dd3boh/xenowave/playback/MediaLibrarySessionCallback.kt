@@ -62,15 +62,16 @@ class MediaLibrarySessionCallback @Inject constructor(
         controller: MediaSession.ControllerInfo
     ): MediaSession.ConnectionResult {
         val connectionResult = super.onConnect(session, controller)
+        val ownController = isOwnController(controller)
+        val commands = connectionResult.availableSessionCommands.buildUpon()
+        MediaCommandPolicy.commandsFor(ownController).forEach { commands.add(it) }
+        if (MediaCommandPolicy.canExposeBinder(ownController)) {
+            // The local UI uses this binder for its own service calls. It is
+            // never offered to another app's media controller.
+            commands.add(SessionCommand(MusicService.COMMAND_GET_BINDER, Bundle.EMPTY))
+        }
         return MediaSession.ConnectionResult.accept(
-            connectionResult.availableSessionCommands.buildUpon()
-                .add(MediaSessionConstants.CommandToggleLibrary)
-                .add(MediaSessionConstants.CommandToggleLike)
-                .add(MediaSessionConstants.CommandToggleStartRadio)
-                .add(MediaSessionConstants.CommandToggleShuffle)
-                .add(MediaSessionConstants.CommandToggleRepeatMode)
-                .add(SessionCommand(MusicService.COMMAND_GET_BINDER, Bundle.EMPTY))
-                .build(),
+            commands.build(),
             connectionResult.availablePlayerCommands
         )
     }
@@ -81,6 +82,11 @@ class MediaLibrarySessionCallback @Inject constructor(
         customCommand: SessionCommand,
         args: Bundle,
     ): ListenableFuture<SessionResult> {
+        if (!MediaCommandPolicy.canExecute(isOwnController(controller), customCommand.customAction)) {
+            return Futures.immediateFuture(
+                SessionResult(SessionError.ERROR_NOT_SUPPORTED)
+            )
+        }
         when (customCommand.customAction) {
             MediaSessionConstants.ACTION_TOGGLE_LIKE -> toggleLike()
             MediaSessionConstants.ACTION_TOGGLE_START_RADIO -> toggleStartRadio()
@@ -92,9 +98,16 @@ class MediaLibrarySessionCallback @Inject constructor(
                     extras.putBinder("music_binder", service.MusicBinder())
                 }
             )
+
+            else -> return Futures.immediateFuture(
+                SessionResult(SessionError.ERROR_NOT_SUPPORTED)
+            )
         }
         return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
     }
+
+    private fun isOwnController(controller: MediaSession.ControllerInfo): Boolean =
+        controller.packageName == context.packageName
 
     override fun onPlaybackResumption(
         mediaSession: MediaSession,
@@ -108,7 +121,7 @@ class MediaLibrarySessionCallback @Inject constructor(
             Log.w(TAG, "No resumption queue data. Loading empty list")
             return@future MediaItemsWithStartPosition(emptyList(), C.INDEX_UNSET, C.TIME_UNSET)
         }
-        Log.i(TAG, "Resumption queue found. Loading queue: size = ${q.queue.size}, queue name = ${q.title}, " +
+        Log.i(TAG, "Resumption queue found. Loading queue: size = ${q.queue.size}, " +
                 "queuePosShuffled = ${q.getQueuePosShuffled()}, lastSongPos = ${q.lastSongPos},")
 
        if (isForPlayback) {

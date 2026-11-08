@@ -41,6 +41,7 @@ import com.dd3boh.xenowave.db.entities.SongGenreMap
 import com.dd3boh.xenowave.db.entities.SortedSongAlbumMap
 import com.dd3boh.xenowave.db.entities.SortedSongArtistMap
 import com.dd3boh.xenowave.extensions.toSQLiteQuery
+import com.dd3boh.xenowave.insights.musicalage.data.MusicalAgeDao
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
@@ -49,6 +50,9 @@ import java.util.Date
 class MusicDatabase(
     private val delegate: InternalDatabase,
 ) : DatabaseDao by delegate.dao {
+    val musicalAgeDao: MusicalAgeDao
+        get() = delegate.musicalAgeDao
+
     val openHelper: SupportSQLiteOpenHelper
         get() = delegate.openHelper
 
@@ -67,6 +71,19 @@ class MusicDatabase(
     }
 
     fun close() = delegate.close()
+
+    /**
+     * Checkpoints WAL and reports whether SQLite had to wait for readers.
+     * A false result means the WAL was not truncated and a file copy could be
+     * incomplete; callers must retry or fail instead of treating it as success.
+     */
+    fun checkpointTruncate(): Boolean {
+        var busy = true
+        delegate.openHelper.writableDatabase.query("PRAGMA wal_checkpoint(TRUNCATE)").use { cursor ->
+            if (cursor.moveToFirst()) busy = cursor.getInt(0) != 0
+        }
+        return !busy
+    }
 
     fun <T> inTransaction(block: MusicDatabase.() -> T): T =
         delegate.runInTransaction(java.util.concurrent.Callable { block(this) })
@@ -128,6 +145,7 @@ class MusicDatabase(
 @TypeConverters(Converters::class)
 abstract class InternalDatabase : RoomDatabase() {
     abstract val dao: DatabaseDao
+    abstract val musicalAgeDao: MusicalAgeDao
 
     companion object {
         const val DB_NAME = "song.db"

@@ -11,6 +11,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInstaller
 import android.os.Build
+import com.dd3boh.xenowave.backup.RestoreConsumerGuard
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -25,6 +26,11 @@ class UpdateInstallReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != ACTION_INSTALL_STATUS) return
+        if (!RestoreConsumerGuard.canOpenData()) {
+            // Do not open DataStore while the restore state is unresolved.
+            // The installer result is discarded; the restore safety wins.
+            return
+        }
 
         val versionCode = intent.getIntExtra(EXTRA_VERSION_CODE, 0)
         val status = intent.getIntExtra(

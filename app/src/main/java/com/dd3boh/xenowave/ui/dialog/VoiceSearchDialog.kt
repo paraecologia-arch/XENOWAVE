@@ -185,6 +185,13 @@ fun VoiceSearchDialog(
                     fontWeight = FontWeight.SemiBold,
                     textAlign = TextAlign.Center,
                 )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = stringResource(R.string.voice_search_provider_note),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
 
                 Spacer(Modifier.height(20.dp))
 

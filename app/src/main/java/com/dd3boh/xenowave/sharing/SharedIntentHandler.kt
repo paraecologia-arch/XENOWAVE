@@ -131,6 +131,10 @@ object SharedIntentHandler {
             if (!uri.scheme.equals("content", ignoreCase = true)) {
                 return@withContext PortableRead.Invalid
             }
+            if (uri.authority == "${context.packageName}.FileProvider") {
+                // Do not let another app bounce a URI back into our provider.
+                return@withContext PortableRead.Invalid
+            }
             val json = runCatching {
                 context.contentResolver.openInputStream(uri)?.use { input ->
                     readLimited(input, MAX_IMPORT_BYTES + 1)

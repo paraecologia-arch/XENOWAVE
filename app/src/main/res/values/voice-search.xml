@@ -2,6 +2,7 @@
 <resources>
     <string name="voice_search_open">Search by voice</string>
     <string name="voice_search_title">Say the song name</string>
+    <string name="voice_search_provider_note">XENOWAVE does not save voice recordings. Recognition uses the speech service available on your device; if only a network service is available, your speech may be processed online.</string>
     <string name="voice_search_listening">Listening…</string>
     <string name="voice_search_processing">Searching…</string>
     <string name="voice_search_retry">Try again</string>

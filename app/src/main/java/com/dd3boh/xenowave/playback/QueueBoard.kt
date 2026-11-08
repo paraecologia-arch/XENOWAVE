@@ -450,7 +450,7 @@ class QueueBoard(
             regenerateIndexes()
             saveAllQueues(masterQueues)
         } else {
-            Log.w(TAG, "Cannot find queue to delete: ${item.title}")
+            Log.w(TAG, "Cannot find queue to delete")
         }
 
         return masterQueues.size
