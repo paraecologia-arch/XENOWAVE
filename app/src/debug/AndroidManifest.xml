@@ -17,5 +17,11 @@
             android:exported="true"
             android:label="DEBUG — XENOWAVE visual"
             android:theme="@style/Theme.XenoWave" />
+        <!-- Debug-only single-card host used by instrumentation and screenshots. -->
+        <activity
+            android:name="com.dd3boh.xenowave.debug.DebugMusicalAgeCardHostActivity"
+            android:exported="false"
+            android:label="DEBUG — XENOWAVE cartão"
+            android:theme="@style/Theme.XenoWave" />
     </application>
 </manifest>

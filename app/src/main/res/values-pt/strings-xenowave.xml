@@ -79,7 +79,7 @@
     <string name="attrib_zhuang">Zion Huang pelo InnerTune</string>
     <string name="xenowave_credits_title">Criadores e créditos</string>
     <string name="xenowave_creation_section">Criação do XENOWAVE</string>
-    <string name="xenowave_creation_intro">O XENOWAVE é um projeto independente, criado e dirigido pelas pessoas abaixo.</string>
+    <string name="xenowave_creation_intro">O XENOWAVE é um projeto independente, criado e dirigido por Rafael de Souza Silva, com assistência ao desenvolvimento do Codex (OpenAI), uma ferramenta de apoio.</string>
     <string name="xenowave_creator_role">Criação e direção do XENOWAVE</string>
     <string name="xenowave_ai_role">Assistência ao desenvolvimento</string>
     <string name="xenowave_base_section">Projetos que serviram de base</string>
