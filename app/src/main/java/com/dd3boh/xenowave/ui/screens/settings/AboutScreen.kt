@@ -162,6 +162,16 @@ fun AboutScreen(
         }
 
         Text(
+            text = stringResource(R.string.xenowave_about_creator_line),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+        )
+
+        Text(
             text = stringResource(R.string.orbitron_license_notice),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -236,7 +246,7 @@ fun AboutScreen(
                     },
                 )
                 PreferenceEntry(
-                    title = { Text(stringResource(R.string.attribution_title)) },
+                    title = { Text(stringResource(R.string.xenowave_credits_title)) },
                     onClick = {
                         navController.navigate("settings/about/attribution")
                     }

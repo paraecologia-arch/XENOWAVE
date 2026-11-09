@@ -6,6 +6,11 @@
             android:name="com.dd3boh.xenowave.debug.DebugRestoreRecoveryHostActivity"
             android:exported="false"
             android:theme="@style/Theme.XenoWave" />
+        <!-- Debug-only host for the credits hierarchy screenshot. Not present in release. -->
+        <activity
+            android:name="com.dd3boh.xenowave.debug.DebugAttributionHostActivity"
+            android:exported="false"
+            android:theme="@style/Theme.XenoWave" />
         <!-- Debug-only synthetic visual gallery. Not present in release. -->
         <activity
             android:name="com.dd3boh.xenowave.debug.DebugMusicalAgePreviewActivity"

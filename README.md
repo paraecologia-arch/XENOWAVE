@@ -91,11 +91,21 @@ Contact us through GitHub
 - For bug reports and/or feature requests, please create a [GitHub issue](https://github.com/paraecologia-arch/XENOWAVE/issues).
 - If you need help with the app, check out the [Discussion Forum](https://github.com/paraecologia-arch/XENOWAVE/discussions).
 
-## Attribution
+## Creation and credits
+
+XENOWAVE is an independent project, created and directed by **Rafael de Souza Silva**. Development uses
+**Codex (OpenAI)** as an assistance tool; this does not imply affiliation, sponsorship or endorsement by OpenAI.
+
+O XENOWAVE é um projeto independente, criado e dirigido por **Rafael de Souza Silva**, com assistência ao
+desenvolvimento de **Codex (OpenAI)** como ferramenta de apoio. Isso não representa vínculo, patrocínio ou endosso
+da OpenAI.
+
+### Base projects
 
 XENOWAVE is derived from [OuterTune](https://github.com/OuterTune/OuterTune) and from
 [z-huang/InnerTune](https://github.com/z-huang/InnerTune), which provided an awesome base for this fork; none of this
-would have been possible without them.
+would have been possible without them. Their authors and maintainers are credited for the original work and are not
+presented as creators of XENOWAVE.
 
 Thanks to all previous contributors! Check them out [here](https://github.com/OuterTune/OuterTune/graphs/contributors)
 
