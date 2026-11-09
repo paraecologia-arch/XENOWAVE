@@ -239,7 +239,10 @@ class MusicalAgeCardProviderDeviceTest {
             result,
             MusicalAgeCardFormat.VERTICAL,
         )
-        val operationId = "cancel-write-${UUID.randomUUID().toString().replace("-", "")}"
+        // MusicalAgeCardFiles sanitizes the operation id (letters/digits only),
+        // so keep the id itself free of separators and assert against the same
+        // value that appears in the published file name.
+        val operationId = "cancelwrite" + UUID.randomUUID().toString().replace("-", "")
         val entered = CompletableDeferred<Unit>()
         val gate = CompletableDeferred<Unit>()
         val chooserOpened = AtomicBoolean(false)
