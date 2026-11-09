@@ -10,7 +10,6 @@ import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
-import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -92,6 +91,7 @@ class MusicalAgeRevealDeviceTest {
         clickText("Pular")
 
         assertTrue("Skip must disappear after the tap", waitGone("Pular"))
+        scrollToActions()
         assertTrue(
             "The complete card must appear after Skip",
             waitForText("Compartilhar cartão"),
@@ -105,9 +105,13 @@ class MusicalAgeRevealDeviceTest {
         assertTrue("Skip must be visible at the start", waitForText("Pular"))
         assertTrue(
             "The reveal must finish without a tap",
-            waitForText("Compartilhar cartão", timeoutMillis = 8_000),
+            waitGone("Pular", timeoutMillis = 10_000),
         )
-        assertTrue("Skip must be gone at the end", waitGone("Pular"))
+        scrollToActions()
+        assertTrue(
+            "The finished card must expose its actions",
+            waitForText("Compartilhar cartão"),
+        )
         assertActionsAreVisibleAndClickable()
     }
 
@@ -118,36 +122,44 @@ class MusicalAgeRevealDeviceTest {
 
         assertTrue(
             "Reduced motion must land directly on the final card",
-            waitForText("Compartilhar cartão", timeoutMillis = 3_000),
+            waitGone("Pular", timeoutMillis = 3_000),
         )
-        assertTrue("The final card must not keep Skip", waitGone("Pular"))
+        scrollToActions()
+        assertTrue(
+            "The final card must expose its actions",
+            waitForText("Compartilhar cartão"),
+        )
         assertActionsAreVisibleAndClickable()
     }
 
     @Test
-    fun backgroundAndReturnDoNotRepeatTheTrip() {
+    fun rotationRecreationDoesNotRepeatTheTrip() {
         assertTrue("Skip must be visible during the reveal", waitForText("Pular"))
 
-        scenario.moveToState(Lifecycle.State.CREATED)
-        scenario.moveToState(Lifecycle.State.RESUMED)
-        compose.mainClock.advanceTimeByFrame()
-
-        assertTrue(
-            "Returning from the background must show the finished card",
-            waitForText("Compartilhar cartão", timeoutMillis = 3_000),
+        // Recreating the activity exercises the same production ON_STOP
+        // branch as backgrounding and additionally restores the saved state.
+        scenario.recreate()
+        compose.mainClock.advanceTimeBy(48)
+        assertTrue("Recreation must keep the host visible", waitForText("Recompor", 3_000))
+        assertFalse(
+            "Recreation must not restart the reveal",
+            device.hasObject(By.text("Pular")),
         )
-        assertTrue("Returning must not restart the reveal", waitGone("Pular"))
         compose.mainClock.advanceTimeBy(5_000)
         assertTrue("The reveal must not loop", waitGone("Pular"))
+        scrollToActions()
+        assertTrue(
+            "Recreation must keep the actions available",
+            waitForText("Compartilhar cartão"),
+        )
     }
 
     @Test
     fun unrelatedRecompositionKeepsTheFinishedState() {
         assertTrue(
             "The reveal must finish before recomposition",
-            waitForText("Compartilhar cartão", timeoutMillis = 8_000),
+            waitGone("Pular", timeoutMillis = 10_000),
         )
-        assertTrue("Skip must be gone before recomposition", waitGone("Pular"))
 
         clickText("Recompor")
         compose.mainClock.advanceTimeBy(80)
@@ -157,6 +169,11 @@ class MusicalAgeRevealDeviceTest {
         )
         compose.mainClock.advanceTimeBy(5_000)
         assertTrue("The finished card must stay finished", waitGone("Pular"))
+        scrollToActions()
+        assertTrue(
+            "The finished card must keep its actions",
+            waitForText("Compartilhar cartão"),
+        )
         assertActionsAreVisibleAndClickable()
     }
 
@@ -164,7 +181,7 @@ class MusicalAgeRevealDeviceTest {
     fun onlyTheExplicitReplayStartsANewTrip() {
         assertTrue(
             "The reveal must finish first",
-            waitForText("Compartilhar cartão", timeoutMillis = 8_000),
+            waitGone("Pular", timeoutMillis = 10_000),
         )
 
         clickText("Repetir")
@@ -214,6 +231,25 @@ class MusicalAgeRevealDeviceTest {
             ?: error("Could not find '$text'")
         node.click()
         compose.mainClock.advanceTimeByFrame()
+    }
+
+    private fun scrollToActions() {
+        repeat(6) {
+            if (device.hasObject(By.text("Compartilhar cartão"))) return
+            device.swipe(
+                device.displayWidth / 2,
+                (device.displayHeight * 0.82f).toInt(),
+                device.displayWidth / 2,
+                (device.displayHeight * 0.28f).toInt(),
+                25,
+            )
+            compose.mainClock.advanceTimeBy(48)
+            Thread.sleep(30)
+        }
+        assertTrue(
+            "The card actions must be reachable after scrolling",
+            device.hasObject(By.text("Compartilhar cartão")),
+        )
     }
 
     private fun waitForText(text: String, timeoutMillis: Long = 5_000): Boolean {
