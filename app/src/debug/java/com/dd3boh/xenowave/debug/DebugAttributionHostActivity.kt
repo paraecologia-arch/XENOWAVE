@@ -5,6 +5,8 @@ import android.content.res.Configuration
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.CompositionLocalProvider
@@ -12,6 +14,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.navigation.compose.rememberNavController
+import com.dd3boh.xenowave.LocalPlayerAwareWindowInsets
+import com.dd3boh.xenowave.constants.AppBarHeight
 import com.dd3boh.xenowave.ui.screens.settings.AttributionScreen
 import com.dd3boh.xenowave.ui.theme.XenoWaveTheme
 import java.util.Locale
@@ -38,8 +42,18 @@ class DebugAttributionHostActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             val density = LocalDensity.current
+            val topInset = with(density) {
+                WindowInsets.systemBars.getTop(this).toDp() + AppBarHeight
+            }
+            val bottomInset = with(density) {
+                WindowInsets.systemBars.getBottom(this).toDp()
+            }
             CompositionLocalProvider(
                 LocalDensity provides Density(density.density, fontScale = LARGE_FONT_SCALE),
+                LocalPlayerAwareWindowInsets provides WindowInsets(
+                    top = topInset,
+                    bottom = bottomInset,
+                ),
             ) {
                 XenoWaveTheme(
                     context = LocalContext.current,
