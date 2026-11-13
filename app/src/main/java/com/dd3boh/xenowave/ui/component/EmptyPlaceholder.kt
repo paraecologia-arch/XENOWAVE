@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,6 +26,8 @@ fun EmptyPlaceholder(
     text: String,
     modifier: Modifier = Modifier,
     showBrandMark: Boolean = false,
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null,
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -54,6 +57,13 @@ fun EmptyPlaceholder(
                     style = MaterialTheme.typography.bodyLarge
                 )
             }
+
+            if (actionLabel != null && onAction != null) {
+                Spacer(Modifier.height(12.dp))
+                TextButton(onClick = onAction) {
+                    Text(actionLabel)
+                }
+            }
         } else {
             Image(
                 painter = painterResource(icon),
@@ -68,6 +78,13 @@ fun EmptyPlaceholder(
                 text = text,
                 style = MaterialTheme.typography.bodyLarge
             )
+
+            if (actionLabel != null && onAction != null) {
+                Spacer(Modifier.height(12.dp))
+                TextButton(onClick = onAction) {
+                    Text(actionLabel)
+                }
+            }
         }
     }
 }

@@ -23,5 +23,11 @@
             android:exported="false"
             android:label="DEBUG — XENOWAVE cartão"
             android:theme="@style/Theme.XenoWave" />
+        <!-- Debug-only host for search list/empty/error/retry states. -->
+        <activity
+            android:name="com.dd3boh.xenowave.debug.DebugSearchStateHostActivity"
+            android:exported="false"
+            android:label="DEBUG — XENOWAVE pesquisa"
+            android:theme="@style/Theme.XenoWave" />
     </application>
 </manifest>

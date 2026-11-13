@@ -181,6 +181,9 @@ jobs:
           adb shell getprop ro.product.cpu.abi || true
           adb devices -l || true
 
+      - name: Live online search smoke on emulator
+        run: python3 tools/live-search-ui-smoke.py
+
       - name: Upload instrumented test reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -190,5 +193,18 @@ jobs:
             app/build/reports/androidTests/connected/
             app/build/outputs/androidTest-results/connected/
             app/build/outputs/connected_android_test_additional_output/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload live search UI evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xenowave-live-search-ui
+          path: |
+            live-search-ui-smoke.json
+            live-search-ui-smoke.xml
+            live-search-ui-smoke.png
+            live-search-ui-smoke-failure.png
           if-no-files-found: ignore
           retention-days: 14

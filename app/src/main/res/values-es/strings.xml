@@ -43,6 +43,9 @@
     <string name="filter_featured_playlists">Listas destacadas</string>
     <string name="filter_bookmarked">En marcadores</string>
     <string name="no_results_found">No se han encontrado resultados</string>
+    <string name="search_results_related">Resultados relacionados</string>
+    <string name="search_load_error">No se pudo cargar la búsqueda. Comprueba la conexión e inténtalo de nuevo.</string>
+    <string name="search_load_more_error">No se pudieron cargar más resultados.</string>
     <string name="library_song_empty">Las canciones de la biblioteca aparecerán aquí</string>
     <string name="library_artist_empty">Los artistas de la biblioteca aparecerán aquí</string>
     <string name="library_album_empty">Los álbumes de la biblioteca aparecerán aquí</string>
