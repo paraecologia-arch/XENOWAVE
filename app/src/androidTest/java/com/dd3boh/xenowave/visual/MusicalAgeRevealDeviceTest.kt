@@ -69,6 +69,14 @@ class MusicalAgeRevealDeviceTest {
                 .putExtra(EXTRA_CONTROLS, true)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         )
+        // Wait until the host process is on screen before advancing the paused
+        // Compose clock; a cold emulator can take several seconds to attach.
+        device.wait(
+            Until.hasObject(
+                By.pkg(ApplicationProvider.getApplicationContext<Context>().packageName).depth(0)
+            ),
+            20_000,
+        )
         // The paused clock still needs one frame to compose, measure, lay out
         // and expose the initial card to UiAutomator.
         compose.mainClock.advanceTimeByFrame()
@@ -227,7 +235,7 @@ class MusicalAgeRevealDeviceTest {
     }
 
     private fun clickText(text: String) {
-        val node = device.wait(Until.findObject(By.text(text)), 5_000)
+        val node = device.wait(Until.findObject(By.text(text)), 15_000)
             ?: error("Could not find '$text'")
         node.click()
         compose.mainClock.advanceTimeByFrame()
@@ -252,7 +260,7 @@ class MusicalAgeRevealDeviceTest {
         )
     }
 
-    private fun waitForText(text: String, timeoutMillis: Long = 5_000): Boolean {
+    private fun waitForText(text: String, timeoutMillis: Long = 15_000): Boolean {
         val deadline = SystemClock.uptimeMillis() + timeoutMillis
         while (SystemClock.uptimeMillis() < deadline) {
             if (device.hasObject(By.text(text))) return true
@@ -262,7 +270,7 @@ class MusicalAgeRevealDeviceTest {
         return device.hasObject(By.text(text))
     }
 
-    private fun waitGone(text: String, timeoutMillis: Long = 5_000): Boolean {
+    private fun waitGone(text: String, timeoutMillis: Long = 15_000): Boolean {
         val deadline = SystemClock.uptimeMillis() + timeoutMillis
         while (SystemClock.uptimeMillis() < deadline) {
             if (!device.hasObject(By.text(text))) return true
