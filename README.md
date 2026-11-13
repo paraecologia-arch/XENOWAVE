@@ -8,20 +8,21 @@ A Material 3 YouTube Music client & local music player for Android
 [![License](https://img.shields.io/github/license/paraecologia-arch/XENOWAVE)](https://www.gnu.org/licenses/gpl-3.0)
 [![Downloads](https://img.shields.io/github/downloads/paraecologia-arch/XENOWAVE/total)](https://github.com/paraecologia-arch/XENOWAVE/releases)
 
-[<img src="assets/badge_github.png" alt="Get it on GitHub" height="40">](https://github.com/paraecologia-arch/XENOWAVE/releases)
+[<img src="assets/badge_github.png" alt="Baixar o XENOWAVE" height="40">](https://paraecologia-arch.github.io/XENOWAVE/)
 
 ## Baixar e instalar gratuitamente
 
-**[Baixar o APK do XENOWAVE para Android](https://github.com/paraecologia-arch/XENOWAVE/releases/download/v0.10.1-beta.1/XENOWAVE-0.10.1-beta.1-core.apk)**
+**[Baixar o XENOWAVE para Android](https://paraecologia-arch.github.io/XENOWAVE/)**
 
+A página mostra a versão atual e leva direto ao APK oficial, sem exigir conta no GitHub.
 [Ver notas da versão e outros lançamentos](https://github.com/paraecologia-arch/XENOWAVE/releases).
 
-1. Use o link acima para baixar **XENOWAVE-0.10.1-beta.1-core.apk**.
+1. Abra a página e toque em **Baixar para Android**.
 2. No celular, abra o APK e permita a instalação por esse navegador ou gerenciador de arquivos, se o Android solicitar.
 3. Conclua a instalação e abra o **XENOWAVE**.
 
-O download em Releases é gratuito e não exige conta no GitHub. O arquivo **Source code** é o código-fonte, não o instalador.
-Android 8 ou superior é recomendado; Android 7 não tem suporte oficial.
+O download é gratuito e não exige conta no GitHub. O arquivo **Source code** em
+Releases é o código-fonte, não o instalador. Android 7.0 ou superior.
 
 Esta primeira versão é **beta**: compilação, verificações automáticas e assinatura são conferidas antes da publicação;
 a validação completa em celular ainda está pendente. A versão Core usa os codecs disponíveis no Android.
@@ -90,11 +91,21 @@ Contact us through GitHub
 - For bug reports and/or feature requests, please create a [GitHub issue](https://github.com/paraecologia-arch/XENOWAVE/issues).
 - If you need help with the app, check out the [Discussion Forum](https://github.com/paraecologia-arch/XENOWAVE/discussions).
 
-## Attribution
+## Creation and credits
+
+XENOWAVE is an independent project, created and directed by **Rafael de Souza Silva**. Development uses
+**Codex (OpenAI)** as an assistance tool; this does not imply affiliation, sponsorship or endorsement by OpenAI.
+
+O XENOWAVE é um projeto independente, criado e dirigido por **Rafael de Souza Silva**, com assistência ao
+desenvolvimento de **Codex (OpenAI)** como ferramenta de apoio. Isso não representa vínculo, patrocínio ou endosso
+da OpenAI.
+
+### Base projects
 
 XENOWAVE is derived from [OuterTune](https://github.com/OuterTune/OuterTune) and from
 [z-huang/InnerTune](https://github.com/z-huang/InnerTune), which provided an awesome base for this fork; none of this
-would have been possible without them.
+would have been possible without them. Their authors and maintainers are credited for the original work and are not
+presented as creators of XENOWAVE.
 
 Thanks to all previous contributors! Check them out [here](https://github.com/OuterTune/OuterTune/graphs/contributors)
 

@@ -109,7 +109,7 @@ object YTPlayerUtils {
         val (webPlayerPot, webStreamingPot) = getWebClientPoTokenOrNull(videoId, sessionId)?.let {
             Pair(it.playerRequestPoToken, it.streamingDataPoToken)
         } ?: Pair(null, null).also {
-            Log.w(TAG, "[$videoId] No po token")
+            Log.d(TAG, "[$videoId] No po token")
         }
 
         val mainPlayerResponse =
@@ -155,7 +155,7 @@ object YTPlayerUtils {
                         .getOrNull()
                         .also {
                             if (it == null) {
-                                Log.w(TAG, "[$videoId] [${client.clientName}] player request failed")
+                                Log.d(TAG, "[$videoId] [${client.clientName}] player request failed")
                             }
                         }
             }
@@ -169,7 +169,7 @@ object YTPlayerUtils {
             if (streamPlayerResponse?.playabilityStatus?.status == "OK") {
                 val streamingData = streamPlayerResponse.streamingData
                 if (streamingData == null || streamingData.adaptiveFormats.isEmpty()) {
-                    Log.w(TAG, "[$videoId] [${client.clientName}] missing streamingData")
+                    Log.d(TAG, "[$videoId] [${client.clientName}] missing streamingData")
                     continue
                 }
 
@@ -182,7 +182,7 @@ object YTPlayerUtils {
 
                 streamUrl = findUrlOrNull(format, videoId)
                 if (streamUrl == null) {
-                    Log.w(TAG, "[$videoId] [${client.clientName}] signature/stream decipher failed")
+                    Log.d(TAG, "[$videoId] [${client.clientName}] signature/stream decipher failed")
                     continue
                 }
                 streamExpiresInSeconds = streamingData.expiresInSeconds
@@ -194,10 +194,10 @@ object YTPlayerUtils {
                 if (validateStatus(streamUrl, client)) {
                     // working stream found
                     streamClient = client
-                    Log.i(TAG, "[$videoId] [${client.clientName}] found working stream")
+                    Log.d(TAG, "[$videoId] [${client.clientName}] found working stream")
                     break
                 } else {
-                    Log.w(TAG, "[$videoId] [${client.clientName}] stream failed HTTP probe")
+                    Log.d(TAG, "[$videoId] [${client.clientName}] stream failed HTTP probe")
                     streamUrl = null
                 }
             }

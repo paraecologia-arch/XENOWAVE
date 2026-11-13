@@ -33,8 +33,8 @@ android {
         applicationId = "com.dd3boh.xenowave"
         minSdk = 24
         targetSdk = 36
-        versionCode = 71
-        versionName = "0.10.1"
+        versionCode = 80
+        versionName = "0.10.3-beta.7"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -199,6 +199,15 @@ android {
     androidResources {
         generateLocaleConfig = true
     }
+
+    // Room's exported schema is validated at restore time. Exposing the
+    // generated JSON as an asset keeps a single source of truth instead of a
+    // hand-maintained copy of the expected structure.
+    sourceSets {
+        getByName("main") {
+            assets.srcDir("schemas")
+        }
+    }
 }
 
 ksp {
@@ -207,6 +216,9 @@ ksp {
 
 dependencies {
     implementation(libs.guava)
+    // Overrides NewPipeExtractor's older transitive jsoup for the XML/HTML
+    // parsing advisories fixed in 1.23.2.
+    implementation(libs.jsoup)
     implementation(libs.coroutines.guava)
     implementation(libs.concurrent.futures)
 
@@ -219,7 +231,8 @@ dependencies {
     implementation(libs.compose.foundation)
     implementation(libs.compose.ui)
     implementation(libs.compose.ui.util)
-    implementation(libs.compose.ui.tooling)
+    debugImplementation(libs.compose.ui.tooling)
+    debugImplementation(libs.compose.ui.test.manifest)
     implementation(libs.compose.animation)
     implementation(libs.compose.reorderable)
     // ui
@@ -241,6 +254,7 @@ dependencies {
     implementation(libs.media3.okhttp)
     implementation(libs.media3.session)
     implementation(libs.media3.workmanager)
+    implementation(libs.work.runtime)
 
     implementation(libs.room.runtime)
     ksp(libs.room.compiler)
@@ -278,6 +292,13 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
+
+    androidTestImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.rules)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.uiautomator)
+    androidTestImplementation(libs.compose.ui.test.junit4)
 }
 
 afterEvaluate {

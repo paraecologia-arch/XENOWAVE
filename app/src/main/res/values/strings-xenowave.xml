@@ -149,6 +149,21 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="wiki">Wiki</string>
 
 <!-- Contributions -->
+    <string name="xenowave_credits_title">Creators and credits</string>
+    <string name="xenowave_creation_section">XENOWAVE creation</string>
+    <string name="xenowave_creation_intro">XENOWAVE is an independent project, created and directed by Rafael de Souza Silva, with development assistance from Codex (OpenAI), a supporting tool.</string>
+    <string name="xenowave_creator_name" translatable="false">Rafael de Souza Silva</string>
+    <string name="xenowave_creator_role">Creation and direction of XENOWAVE</string>
+    <string name="xenowave_ai_name" translatable="false">Codex (OpenAI)</string>
+    <string name="xenowave_ai_role">Development assistance</string>
+    <string name="xenowave_base_section">Base projects</string>
+    <string name="xenowave_base_note">XENOWAVE is built on these projects. Their authors and maintainers are credited for the original work; they are not presented as creators of XENOWAVE.</string>
+    <string name="xenowave_outertune_maintainer_role">OuterTune maintainer</string>
+    <string name="xenowave_innertune_creator_role">InnerTune creator</string>
+    <string name="xenowave_contributors_xenowave">XENOWAVE contributors (repository history)</string>
+    <string name="xenowave_contributors_outertune">OuterTune contributors</string>
+    <string name="xenowave_licenses_note">GPL, dependencies, font and other open source notices</string>
+    <string name="xenowave_about_creator_line">Created and directed by Rafael de Souza Silva</string>
     <string name="all_contributors">Show all contributors</string>
     <string name="att_contributor">Contributor</string>
     <string name="att_lead_developer">Lead developer</string>

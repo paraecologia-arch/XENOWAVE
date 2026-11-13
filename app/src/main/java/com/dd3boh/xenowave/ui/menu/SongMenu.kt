@@ -312,6 +312,8 @@ fun SongMenu(
                 onDismiss()
                 database.query {
                     delete(event)
+                    com.dd3boh.xenowave.insights.musicalage.data.AppMusicalAgeHistoryGeneration
+                        .invalidate()
                 }
             }
         }

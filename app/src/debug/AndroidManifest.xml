@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Debug-only host for instrumentation tests. Not present in release. -->
+        <activity
+            android:name="com.dd3boh.xenowave.debug.DebugRestoreRecoveryHostActivity"
+            android:exported="false"
+            android:theme="@style/Theme.XenoWave" />
+        <!-- Debug-only host for the credits hierarchy screenshot. Not present in release. -->
+        <activity
+            android:name="com.dd3boh.xenowave.debug.DebugAttributionHostActivity"
+            android:exported="false"
+            android:theme="@style/Theme.XenoWave" />
+        <!-- Debug-only synthetic visual gallery. Not present in release. -->
+        <activity
+            android:name="com.dd3boh.xenowave.debug.DebugMusicalAgePreviewActivity"
+            android:exported="true"
+            android:label="DEBUG — XENOWAVE visual"
+            android:theme="@style/Theme.XenoWave" />
+        <!-- Debug-only single-card host used by instrumentation and screenshots. -->
+        <activity
+            android:name="com.dd3boh.xenowave.debug.DebugMusicalAgeCardHostActivity"
+            android:exported="false"
+            android:label="DEBUG — XENOWAVE cartão"
+            android:theme="@style/Theme.XenoWave" />
+        <!-- Debug-only host for search list/empty/error/retry states. -->
+        <activity
+            android:name="com.dd3boh.xenowave.debug.DebugSearchStateHostActivity"
+            android:exported="false"
+            android:label="DEBUG — XENOWAVE pesquisa"
+            android:theme="@style/Theme.XenoWave" />
+        <!-- Debug-only real ViewModel + production filter chips integration host. -->
+        <activity
+            android:name="com.dd3boh.xenowave.debug.DebugSearchFilterHostActivity"
+            android:exported="false"
+            android:label="DEBUG — XENOWAVE filtros"
+            android:theme="@style/Theme.XenoWave" />
+    </application>
+</manifest>

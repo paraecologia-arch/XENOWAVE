@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="share_app_title">Share XENOWAVE</string>
+    <string name="share_app_description">Invite friends to install the app</string>
+    <string name="share_chooser_title">Share XENOWAVE</string>
+    <string name="share_app_message">Come listen to music with me on %1$s. Download it here: %2$s</string>
+    <string name="share_playlist_chooser_title">Share playlist</string>
+    <string name="share_playlist_message">Listen to my playlist \"%1$s\" on %3$s:\n%2$s\n\nGet %3$s: %4$s\n\n%5$s</string>
+    <string name="share_playlist_visibility_hint">If the link does not open, the playlist owner needs to check its visibility in YouTube Music.</string>
+    <string name="share_local_playlist_summary">Share a portable copy of \"%1$s\"?\n\n%2$d online tracks will be included. %3$d local files cannot be sent. Nothing is uploaded automatically.</string>
+    <string name="share_local_playlist_message">Portable copy of my playlist \"%1$s\" (%2$d online tracks; %3$d local files omitted). Open the attachment in XENOWAVE to review and save a copy.</string>
+    <string name="share_local_playlist_button">Share copy</string>
+    <string name="share_local_playlist_no_online">This playlist has no online tracks that can be shared as references. Local audio files are not transferred.</string>
+    <string name="share_local_playlist_too_many">This playlist is too large to share as a portable copy (limit: 500 online tracks).</string>
+    <string name="share_local_playlist_failed">The portable playlist could not be created.</string>
+    <string name="share_import_title">Import playlist?</string>
+    <string name="share_import_summary">Import \"%1$s\"?\n\n%2$d online tracks. %3$d local files were not included.\n\nThis creates a new local playlist. It does not change existing playlists or upload anything.</string>
+    <string name="share_import_save">Save a copy</string>
+    <string name="share_playlist_imported">Playlist imported with %1$d tracks.</string>
+    <string name="share_playlist_import_failed">Could not import this playlist.</string>
+    <string name="share_invalid_playlist_link">This share does not contain a valid playlist link or XENOWAVE playlist file.</string>
+</resources>

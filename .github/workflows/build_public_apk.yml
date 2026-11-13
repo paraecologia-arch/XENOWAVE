@@ -24,12 +24,22 @@ jobs:
         run: /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager "cmake;3.31.6" "build-tools;35.0.0"
       - name: Build release and validate
         run: ./gradlew assembleCoreRelease lintCoreRelease testCoreDebugUnitTest --stacktrace -DskipFormatKtlint
+      - name: Read app version
+        id: app_version
+        run: |
+          VERSION_NAME=$(sed -n 's/^[[:space:]]*versionName = "\(.*\)"/\1/p' app/build.gradle.kts | head -n1)
+          VERSION_CODE=$(sed -n 's/^[[:space:]]*versionCode = \([0-9][0-9]*\)/\1/p' app/build.gradle.kts | head -n1)
+          test -n "$VERSION_NAME"
+          test -n "$VERSION_CODE"
+          echo "name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
       - name: Align APK for local signing
         run: |
           mkdir -p public-apk
           APK=$(find app/build/outputs/apk/core/release -name '*.apk' -print -quit)
           test -n "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -P 16 -f -v 4 "$APK" public-apk/XENOWAVE-0.10.1-core-unsigned.apk
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -P 16 -f -v 4 "$APK" \
+            "public-apk/XENOWAVE-${{ steps.app_version.outputs.name }}-core-unsigned.apk"
       - uses: actions/upload-artifact@v4
         with:
           name: XENOWAVE-public-unsigned

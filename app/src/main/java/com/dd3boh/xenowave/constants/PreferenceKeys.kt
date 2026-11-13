@@ -186,6 +186,40 @@ val LastUpdateCheckKey = longPreferencesKey("lastUpdateCheck")
 val LastVersionKey = stringPreferencesKey("lastVersion")
 val UpdateAvailableKey = booleanPreferencesKey("updateAvailable")
 
+/**
+ * Automatic updates
+ */
+val AutoUpdateEnabledKey = booleanPreferencesKey("autoUpdateEnabled")
+val UpdateChannelKey = stringPreferencesKey("updateChannel")
+val UpdatePhaseKey = stringPreferencesKey("updatePhase")
+val UpdateProgressKey = intPreferencesKey("updateProgress")
+val UpdateVersionCodeKey = intPreferencesKey("updateVersionCode")
+val UpdateVersionNameKey = stringPreferencesKey("updateVersionName")
+val UpdateApkNameKey = stringPreferencesKey("updateApkName")
+val UpdateApkSizeKey = longPreferencesKey("updateApkSize")
+val UpdateApkSha256Key = stringPreferencesKey("updateApkSha256")
+val UpdateDownloadUrlKey = stringPreferencesKey("updateDownloadUrl")
+val UpdateMetadataJsonKey = stringPreferencesKey("updateMetadataJson")
+val UpdatePendingVersionCodeKey = intPreferencesKey("updatePendingVersionCode")
+val UpdateInstallAttemptKey = longPreferencesKey("updateInstallAttempt")
+val UpdateErrorKey = stringPreferencesKey("updateError")
+val LastForegroundUpdateCheckKey = longPreferencesKey("lastForegroundUpdateCheck")
+
+/**
+ * Consent is bound to one exact target: versionCode + SHA-256 + application id.
+ * A boolean is intentionally not used, because it would authorise every future
+ * release that a worker happens to download.
+ */
+val UpdateConsentVersionCodeKey = intPreferencesKey("updateConsentVersionCode")
+val UpdateConsentSha256Key = stringPreferencesKey("updateConsentSha256")
+val UpdateConsentApplicationIdKey = stringPreferencesKey("updateConsentApplicationId")
+val UpdateConsentGrantedAtKey = longPreferencesKey("updateConsentGrantedAt")
+val UpdateDeltaUrlsKey = stringPreferencesKey("updateDeltaUrls")
+val UpdateArtifactKindKey = stringPreferencesKey("updateArtifactKind")
+val UpdateDownloadSizeKey = longPreferencesKey("updateDownloadSize")
+val UpdateEconomyPercentKey = intPreferencesKey("updateEconomyPercent")
+val UpdateFailedDeltaKey = stringPreferencesKey("updateFailedDelta")
+
 val LanguageCodeToName = mapOf(
     "af" to "Afrikaans",
     "az" to "Azərbaycan",

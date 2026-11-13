@@ -11,6 +11,7 @@ package com.dd3boh.xenowave
 
 import android.app.Application
 import android.content.Context
+import android.webkit.CookieManager
 import android.util.Log
 import android.widget.Toast
 import android.widget.Toast.LENGTH_SHORT
@@ -24,9 +25,6 @@ import coil3.memory.MemoryCache
 import coil3.request.CachePolicy
 import coil3.request.allowHardware
 import coil3.request.crossfade
-import com.dd3boh.xenowave.constants.AccountChannelHandleKey
-import com.dd3boh.xenowave.constants.AccountEmailKey
-import com.dd3boh.xenowave.constants.AccountNameKey
 import com.dd3boh.xenowave.constants.ContentCountryKey
 import com.dd3boh.xenowave.constants.ContentLanguageKey
 import com.dd3boh.xenowave.constants.CountryCodeToName
@@ -40,13 +38,22 @@ import com.dd3boh.xenowave.constants.ProxyUrlKey
 import com.dd3boh.xenowave.constants.SYSTEM_DEFAULT
 import com.dd3boh.xenowave.constants.UseLoginForBrowse
 import com.dd3boh.xenowave.constants.VisitorDataKey
+import com.dd3boh.xenowave.backup.RestoreOutcome
+import com.dd3boh.xenowave.backup.RestoreConsumerGuard
+import com.dd3boh.xenowave.backup.RestoreRecovery
+import com.dd3boh.xenowave.backup.RestoreRecoveryGate
 import com.dd3boh.xenowave.extensions.toEnum
 import com.dd3boh.xenowave.extensions.toInetSocketAddress
 import com.dd3boh.xenowave.utils.CoilBitmapLoader
 import com.dd3boh.xenowave.utils.LocalArtworkPathKeyer
+import com.dd3boh.xenowave.utils.auth.AuthSession
+import com.dd3boh.xenowave.utils.auth.AccountSession
+import com.dd3boh.xenowave.utils.auth.LogoutOutcome
 import com.dd3boh.xenowave.utils.dataStore
 import com.dd3boh.xenowave.utils.get
 import com.dd3boh.xenowave.utils.reportException
+import com.dd3boh.xenowave.update.UpdateInfo
+import com.dd3boh.xenowave.update.UpdateScheduler
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.YouTubeLocale
 import com.zionhuang.kugou.KuGou
@@ -54,10 +61,11 @@ import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import java.net.Proxy
 import java.util.Locale
@@ -65,16 +73,72 @@ import java.util.Locale
 @HiltAndroidApp
 class App : Application(), SingletonImageLoader.Factory {
     private val TAG = App::class.simpleName.toString()
+    @Volatile
+    private var runtimeInitialized = false
 
     @OptIn(DelicateCoroutinesApi::class)
     override fun onCreate() {
         super.onCreate()
+        instance = this
+
+        // Restore commit must run before Room or DataStore is opened by the
+        // rest of the process. A successful restore writes a journal and
+        // restarts the app; this is the corresponding recovery/commit pass.
+        val recovery = try {
+            RestoreRecovery.recover(this)
+        } catch (e: Exception) {
+            Log.e(TAG, "Restore recovery failed", e)
+            RestoreOutcome.UNRESOLVED
+        }
+        RestoreRecoveryGate.applyOutcome(recovery)
+        if (recovery == RestoreOutcome.UNRESOLVED) {
+            // The live database/preferences could not be proven to belong to
+            // either the previous or the new pair. Do not open Room/DataStore
+            // or start network/update collectors; MainActivity shows a small
+            // retry/keep-current screen instead.
+            return
+        }
+        when (recovery) {
+            RestoreOutcome.SUCCESS -> Toast.makeText(
+                this,
+                R.string.restore_completed,
+                LENGTH_SHORT,
+            ).show()
+            RestoreOutcome.FAILED_RECOVERED -> Toast.makeText(
+                this,
+                R.string.restore_failed_previous_kept,
+                LENGTH_SHORT,
+            ).show()
+            RestoreOutcome.FAILED_SAFE -> Toast.makeText(
+                this,
+                R.string.restore_not_applied,
+                LENGTH_SHORT,
+            ).show()
+            RestoreOutcome.NONE, RestoreOutcome.UNRESOLVED -> Unit
+        }
+
+        completeStartup()
+    }
+
+    /**
+     * Opens DataStore and configures the network/update clients.
+     *
+     * Called from [onCreate] once the restore state is known to be safe, or
+     * from the recovery screen after a pending restore was resolved in the same
+     * process. Idempotent: a second call is ignored.
+     */
+    @OptIn(DelicateCoroutinesApi::class)
+    fun completeStartup() {
+        synchronized(this) {
+            if (runtimeInitialized) return
+            runtimeInitialized = true
+        }
 
         if (BuildConfig.DEBUG) {
             System.setProperty("kotlinx.coroutines.debug", "on")
         }
 
-        instance = this;
+        AccountSession.initialize(this)
 
         val locale = Locale.getDefault()
         val languageTag = locale.toLanguageTag().replace("-Hant", "") // replace zh-Hant-* to zh-*
@@ -161,10 +225,18 @@ class App : Application(), SingletonImageLoader.Factory {
                     }
                 }
         }
+
+        if (UpdateInfo.isSupported) {
+            UpdateScheduler.onAppStart(this)
+        }
     }
 
     override fun newImageLoader(context: PlatformContext): ImageLoader {
-        val cacheSize = dataStore[MaxImageCacheSizeKey]
+        // Coil can be initialized by a component outside MainActivity. Never
+        // open DataStore while the restore gate is blocked.
+        val cacheSize = RestoreConsumerGuard.ifAllowed<Int?>(null) {
+            dataStore[MaxImageCacheSizeKey]
+        }
 
         // will crash app if you set to 0 after cache starts being used
         if (cacheSize == 0) {
@@ -211,14 +283,23 @@ class App : Application(), SingletonImageLoader.Factory {
             private set
 
         fun forgetAccount(context: Context) {
-            runBlocking {
-                context.dataStore.edit { settings ->
-                    settings.remove(InnerTubeCookieKey)
-                    settings.remove(VisitorDataKey)
-                    settings.remove(DataSyncIdKey)
-                    settings.remove(AccountNameKey)
-                    settings.remove(AccountEmailKey)
-                    settings.remove(AccountChannelHandleKey)
+            if (!RestoreConsumerGuard.canOpenData()) return
+            // One coordinator owns logout and session writes: the generation
+            // is invalidated under the same mutex a queued login write needs,
+            // and the cookie callback is awaited on the main Looper without
+            // blocking it (see AndroidWebCookieCleaner).
+            AccountSession.initialize(context)
+            CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+                try {
+                    when (AccountSession.logout()) {
+                        LogoutOutcome.COMPLETED ->
+                            runCatching { CookieManager.getInstance().flush() }
+                        LogoutOutcome.INCOMPLETE ->
+                            Log.e("App", "Logout cleanup could not be confirmed")
+                    }
+                } catch (e: Exception) {
+                    AuthSession.markIncomplete()
+                    Log.e("App", "Logout cleanup failed", e)
                 }
             }
         }

@@ -338,19 +338,19 @@ class DownloadUtil @Inject constructor(
         source: DownloadSource,
     ) {
         val appState = downloads.value[id]
-        Log.i(
+        Log.d(
             TAG,
-            "DOWNLOAD_ENTRY source=$source mediaId=$id " +
+            "DOWNLOAD_ENTRY source=$source " +
                 "state=${appDownloadStateName(appState)}"
         )
 
         if (appState.isCompletedDownload()) {
-            Log.i(TAG, "DOWNLOAD_DECISION source=$source mediaId=$id decision=SKIP_COMPLETED")
+            Log.d(TAG, "DOWNLOAD_DECISION source=$source decision=SKIP_COMPLETED")
             return
         }
 
         if (!pendingDownloadRequests.add(id)) {
-            Log.i(TAG, "DOWNLOAD_DECISION source=$source mediaId=$id decision=SKIP_PENDING")
+            Log.d(TAG, "DOWNLOAD_DECISION source=$source decision=SKIP_PENDING")
             return
         }
 
@@ -367,20 +367,20 @@ class DownloadUtil @Inject constructor(
             val dbPresent = runCatching {
                 database.song(id).first() != null
             }.getOrDefault(false)
-            Log.i(TAG, "DOWNLOAD_PREPARE source=$source mediaId=$id dbPresent=$dbPresent")
+            Log.d(TAG, "DOWNLOAD_PREPARE source=$source dbPresent=$dbPresent")
 
             val media3Download = runCatching {
                 downloadManager.downloadIndex.getDownload(id)
             }.getOrNull()
             val media3State = media3Download?.state
-            Log.i(
+            Log.d(
                 TAG,
-                "DOWNLOAD_STATE mediaId=$id media3State=${media3StateName(media3State)} " +
+                "DOWNLOAD_STATE media3State=${media3StateName(media3State)} " +
                     "appState=${appDownloadStateName(appState)}"
             )
 
             val decision = downloadDecision(appState, media3State)
-            Log.i(TAG, "DOWNLOAD_DECISION source=$source mediaId=$id decision=$decision")
+            Log.d(TAG, "DOWNLOAD_DECISION source=$source decision=$decision")
 
             when (decision) {
                 DownloadDecision.ENQUEUE, DownloadDecision.RETRY, DownloadDecision.RESET_STALE -> {
@@ -398,7 +398,7 @@ class DownloadUtil @Inject constructor(
                             downloadRequest,
                             false
                         )
-                        Log.i(TAG, "ENQUEUE_SENT mediaId=$id")
+                        Log.d(TAG, "ENQUEUE_SENT")
                         downloads.update { map ->
                             map.toMutableMap().apply {
                                 set(id, STATE_DOWNLOADING)
@@ -418,7 +418,7 @@ class DownloadUtil @Inject constructor(
                         downloadStatusWriter.launch {
                             database.updateDownloadStatus(id, null)
                         }
-                        Log.w(TAG, "DOWNLOAD_DECISION source=$source mediaId=$id decision=ERROR", e)
+                        Log.w(TAG, "DOWNLOAD_DECISION source=$source decision=ERROR", e)
                     }
                 }
 
@@ -471,7 +471,7 @@ class DownloadUtil @Inject constructor(
                 downloadStatusWriter.launch {
                     database.updateDownloadStatus(id, null)
                 }
-                Log.w(TAG, "DOWNLOAD_REQUEST_FAILED source=$source mediaId=$id", e)
+                Log.w(TAG, "DOWNLOAD_REQUEST_FAILED source=$source", e)
             } finally {
                 pendingDownloadRequests.remove(id)
             }
@@ -740,7 +740,7 @@ class DownloadUtil @Inject constructor(
                 .keys
                 .filterNot { it in indexedDownloads }
             staleActiveIds.forEach { id ->
-                Log.i(TAG, "DOWNLOAD_STATE mediaId=$id media3State=MISSING appState=STALE")
+                Log.d(TAG, "DOWNLOAD_STATE media3State=MISSING appState=STALE")
                 downloads.update { map ->
                     map.toMutableMap().apply {
                         remove(id)

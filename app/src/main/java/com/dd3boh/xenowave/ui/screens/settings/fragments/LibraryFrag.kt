@@ -19,6 +19,7 @@ import com.dd3boh.xenowave.constants.InnerTubeCookieKey
 import com.dd3boh.xenowave.constants.PauseListenHistoryKey
 import com.dd3boh.xenowave.constants.PauseRemoteListenHistoryKey
 import com.dd3boh.xenowave.constants.PauseSearchHistoryKey
+import com.dd3boh.xenowave.insights.musicalage.data.AppMusicalAgeHistoryGeneration
 import com.dd3boh.xenowave.ui.component.PreferenceEntry
 import com.dd3boh.xenowave.ui.component.SwitchPreference
 import com.dd3boh.xenowave.ui.dialog.DefaultDialog
@@ -93,6 +94,7 @@ fun ColumnScope.ListenHistoryFrag() {
                         showClearListenHistoryDialog = false
                         database.query {
                             clearListenHistory()
+                            AppMusicalAgeHistoryGeneration.invalidate()
                         }
                     }
                 ) {

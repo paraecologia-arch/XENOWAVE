@@ -3,11 +3,13 @@ package com.dd3boh.xenowave.ui.screens.search
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
@@ -17,18 +19,20 @@ import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.dd3boh.xenowave.LocalMenuState
@@ -58,6 +62,7 @@ import com.dd3boh.xenowave.ui.menu.YouTubePlaylistMenu
 import com.dd3boh.xenowave.ui.menu.YouTubeSongMenu
 import com.dd3boh.xenowave.utils.rememberPreference
 import com.dd3boh.xenowave.viewmodels.OnlineSearchViewModel
+import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.YouTube.SearchFilter.Companion.FILTER_ALBUM
 import com.zionhuang.innertube.YouTube.SearchFilter.Companion.FILTER_ARTIST
 import com.zionhuang.innertube.YouTube.SearchFilter.Companion.FILTER_COMMUNITY_PLAYLIST
@@ -69,8 +74,8 @@ import com.zionhuang.innertube.models.ArtistItem
 import com.zionhuang.innertube.models.PlaylistItem
 import com.zionhuang.innertube.models.SongItem
 import com.zionhuang.innertube.models.YTItem
+import com.zionhuang.innertube.models.stableKey
 import kotlinx.coroutines.launch
-import java.net.URLDecoder
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -93,13 +98,14 @@ fun OnlineSearchResult(
 
     val searchFilter by viewModel.filter.collectAsState()
     val searchSummary = viewModel.summaryPage
-    val itemsPage by remember(searchFilter) {
-        derivedStateOf {
-            searchFilter?.value?.let {
-                viewModel.viewStateMap[it]
-            }
-        }
-    }
+    val summaryLoading = viewModel.isSummaryLoading
+    val summaryError = viewModel.summaryError
+    val filterKey = searchFilter?.value
+    val filterState = filterKey?.let { viewModel.filterStates[it] }
+    val filterLoading = filterState?.isLoading == true
+    val filterError = filterState?.error
+    val filterRelated = filterState?.related == true
+    val loadMoreError = filterState?.loadMoreError
 
     LaunchedEffect(lazyListState) {
         snapshotFlow {
@@ -171,12 +177,7 @@ fun OnlineSearchResult(
                                             val songSuggestions = collection.filter { it is SongItem }
                                             playerConnection.playQueue(
                                                 ListQueue(
-                                                    title = "${context.getString(R.string.queue_searched_songs_xenowave)} ${
-                                                        URLDecoder.decode(
-                                                            viewModel.query,
-                                                            "UTF-8"
-                                                        )
-                                                    }",
+                                                    title = "${context.getString(R.string.queue_searched_songs_xenowave)} ${viewModel.query}",
                                                     items = songSuggestions.map { (it as SongItem).toMediaMetadata() },
                                                     startIndex = songSuggestions.indexOf(item)
                                                 ),
@@ -224,38 +225,78 @@ fun OnlineSearchResult(
             .asPaddingValues()
     ) {
         if (searchFilter == null) {
-            searchSummary?.summaries?.forEach { summary ->
-                item {
-                    NavigationTitle(summary.title)
-                }
-
-                items(
-                    items = summary.items,
-                    key = { "${summary.title}/${it.id}" }
-                ) { item ->
-                    ytItemContent(item, summary.items)
-                }
-            }
-
-            if (searchSummary?.summaries?.isEmpty() == true) {
+            val summaries = searchSummary?.summaries.orEmpty()
+            if (summaryError != null && searchSummary == null) {
                 item {
                     EmptyPlaceholder(
                         icon = com.dd3boh.xenowave.ui.icons.XenoNavigationIcons.Search,
-                        text = stringResource(R.string.no_results_found),
+                        text = stringResource(R.string.search_load_error),
                         modifier = Modifier.animateItem(),
                         showBrandMark = true,
+                        actionLabel = stringResource(R.string.retry),
+                        onAction = viewModel::retry,
                     )
+                }
+            } else {
+                summaries.forEachIndexed { index, summary ->
+                    if (summary.related) {
+                        item(key = "related-$index") {
+                            NavigationTitle(stringResource(R.string.search_results_related))
+                        }
+                    } else if (summary.title.isNotBlank()) {
+                        item(key = "title-$index") {
+                            NavigationTitle(summary.title)
+                        }
+                    }
+
+                    items(
+                        items = summary.items,
+                        key = { "$index/${it.stableKey}" }
+                    ) { item ->
+                        ytItemContent(item, summary.items)
+                    }
+                }
+
+                if (summaries.isEmpty() && !summaryLoading) {
+                    item {
+                        EmptyPlaceholder(
+                            icon = com.dd3boh.xenowave.ui.icons.XenoNavigationIcons.Search,
+                            text = stringResource(R.string.no_results_found),
+                            modifier = Modifier.animateItem(),
+                            showBrandMark = true,
+                        )
+                    }
+                }
+
+                if (searchSummary == null && summaryLoading) {
+                    item {
+                        ShimmerHost {
+                            repeat(8) {
+                                ListItemPlaceHolder()
+                            }
+                        }
+                    }
                 }
             }
         } else {
-            items(
-                items = itemsPage?.items.orEmpty(),
-                key = { it.id }
-            ) { item ->
-                ytItemContent(item, itemsPage?.items.orEmpty())
+            if (filterRelated) {
+                item(key = "related-filter") {
+                    NavigationTitle(stringResource(R.string.search_results_related))
+                }
             }
 
-            if (itemsPage?.continuation != null) {
+            items(
+                items = filterState?.items.orEmpty(),
+                key = { it.stableKey }
+            ) { item ->
+                ytItemContent(item, filterState?.items.orEmpty())
+            }
+
+            if (loadMoreError != null) {
+                item(key = "load-more-error") {
+                    LoadMoreErrorItem(onRetry = viewModel::retryNextPage)
+                }
+            } else if (filterState?.continuation != null) {
                 item(key = "loading") {
                     ShimmerHost {
                         repeat(3) {
@@ -265,7 +306,18 @@ fun OnlineSearchResult(
                 }
             }
 
-            if (itemsPage?.items?.isEmpty() == true) {
+            if (filterError != null && filterState.items.isNullOrEmpty()) {
+                item {
+                    EmptyPlaceholder(
+                        icon = com.dd3boh.xenowave.ui.icons.XenoNavigationIcons.Search,
+                        text = stringResource(R.string.search_load_error),
+                        modifier = Modifier.animateItem(),
+                        showBrandMark = true,
+                        actionLabel = stringResource(R.string.retry),
+                        onAction = viewModel::retry,
+                    )
+                }
+            } else if (filterState?.items?.isEmpty() == true && !filterLoading) {
                 item {
                     EmptyPlaceholder(
                         icon = com.dd3boh.xenowave.ui.icons.XenoNavigationIcons.Search,
@@ -275,13 +327,13 @@ fun OnlineSearchResult(
                     )
                 }
             }
-        }
 
-        if (searchFilter == null && searchSummary == null || searchFilter != null && itemsPage == null) {
-            item {
-                ShimmerHost {
-                    repeat(8) {
-                        ListItemPlaceHolder()
+            if (filterState == null || (filterState.isLoading && filterState.items.isEmpty())) {
+                item {
+                    ShimmerHost {
+                        repeat(8) {
+                            ListItemPlaceHolder()
+                        }
                     }
                 }
             }
@@ -302,16 +354,7 @@ fun OnlineSearchResult(
         )
     }
 
-    ChipsRow(
-        chips = listOf(
-            null to stringResource(R.string.filter_all),
-            FILTER_SONG to stringResource(R.string.filter_songs),
-            FILTER_VIDEO to stringResource(R.string.filter_videos),
-            FILTER_ALBUM to stringResource(R.string.filter_albums),
-            FILTER_ARTIST to stringResource(R.string.filter_artists),
-            FILTER_COMMUNITY_PLAYLIST to stringResource(R.string.filter_community_playlists),
-            FILTER_FEATURED_PLAYLIST to stringResource(R.string.filter_featured_playlists)
-        ),
+    OnlineSearchFilterChips(
         currentValue = searchFilter,
         onValueUpdate = {
             if (viewModel.filter.value != it) {
@@ -325,4 +368,45 @@ fun OnlineSearchResult(
             .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top).add(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Horizontal)))
             .padding(top = AppBarHeight)
     )
+}
+
+/** Production filter row, also hosted by the deterministic debug integration test. */
+@Composable
+internal fun OnlineSearchFilterChips(
+    currentValue: YouTube.SearchFilter?,
+    onValueUpdate: (YouTube.SearchFilter?) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    ChipsRow(
+        chips = listOf(
+            null to stringResource(R.string.filter_all),
+            FILTER_SONG to stringResource(R.string.filter_songs),
+            FILTER_VIDEO to stringResource(R.string.filter_videos),
+            FILTER_ALBUM to stringResource(R.string.filter_albums),
+            FILTER_ARTIST to stringResource(R.string.filter_artists),
+            FILTER_COMMUNITY_PLAYLIST to stringResource(R.string.filter_community_playlists),
+            FILTER_FEATURED_PLAYLIST to stringResource(R.string.filter_featured_playlists)
+        ),
+        currentValue = currentValue,
+        onValueUpdate = onValueUpdate,
+        modifier = modifier,
+    )
+}
+
+@Composable
+internal fun LoadMoreErrorItem(onRetry: () -> Unit) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 16.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.search_load_more_error),
+            textAlign = TextAlign.Center,
+        )
+        TextButton(onClick = onRetry) {
+            Text(stringResource(R.string.retry))
+        }
+    }
 }

@@ -12,6 +12,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.preferencesDataStore
 import com.dd3boh.xenowave.extensions.toEnum
+import com.dd3boh.xenowave.utils.auth.AccountSession
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
@@ -67,6 +68,45 @@ fun <T> rememberPreference(
                         context.dataStore.edit {
                             it[key] = value
                         }
+                    }
+                }
+
+            override fun component1() = value
+            override fun component2(): (T) -> Unit = { value = it }
+        }
+    }
+}
+
+/**
+ * Preference backed by the sign-in session.
+ *
+ * Unlike [rememberPreference], the write is routed through
+ * [AccountSession] and re-checks the generation at the effective DataStore
+ * commit. A write scheduled before a logout therefore cannot land after the
+ * session was cleared.
+ */
+@Composable
+fun <T> rememberSessionPreference(
+    key: Preferences.Key<T>,
+    defaultValue: T,
+    sessionToken: Long,
+): MutableState<T> {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
+    val state = remember {
+        context.dataStore.data
+            .map { it[key] ?: defaultValue }
+            .distinctUntilChanged()
+    }.collectAsState(context.dataStore[key] ?: defaultValue)
+
+    return remember(key, sessionToken) {
+        object : MutableState<T> {
+            override var value: T
+                get() = state.value
+                set(value) {
+                    coroutineScope.launch {
+                        AccountSession.writeSession(sessionToken, key, value)
                     }
                 }
 

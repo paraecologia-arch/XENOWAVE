@@ -75,6 +75,7 @@ fun ImportM3uDialog(
     navController: NavController,
     onDismiss: () -> Unit,
 ) {
+    BlockingDialogEffect("import-m3u")
     val context = LocalContext.current
     val database = LocalDatabase.current
     val snackbarHostState = LocalSnackbarHostState.current

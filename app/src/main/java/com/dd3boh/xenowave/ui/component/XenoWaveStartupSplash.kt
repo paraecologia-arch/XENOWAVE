@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -30,7 +29,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dd3boh.xenowave.R
@@ -141,12 +139,9 @@ fun XenoWaveStartupSplash(onFinished: () -> Unit) {
                 visible = showName,
                 enter = fadeIn(tween(450)),
             ) {
-                Text(
-                    text = "XENOWAVE",
+                XenoBrandWordmark(
                     color = splashLight,
                     fontSize = 24.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    letterSpacing = 4.sp,
                 )
             }
         }

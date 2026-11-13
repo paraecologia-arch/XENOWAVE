@@ -8,6 +8,13 @@ sealed class YTItem {
     abstract val shareLink: String
 }
 
+/**
+ * Stable identity for de-duplication. Different item types may legitimately share the
+ * same raw id, so the type is part of the key.
+ */
+val YTItem.stableKey: String
+    get() = "${this::class.simpleName}:$id"
+
 data class Artist(
     val name: String,
     val id: String?,

@@ -38,6 +38,9 @@ import com.dd3boh.xenowave.models.toMediaMetadata
 import com.dd3boh.xenowave.playback.ExoDownloadService
 import com.dd3boh.xenowave.playback.queues.ListQueue
 import com.dd3boh.xenowave.playback.queues.YouTubeQueue
+import com.dd3boh.xenowave.sharing.OfficialAppLinkProvider
+import com.dd3boh.xenowave.sharing.ShareIntentFactory
+import com.dd3boh.xenowave.sharing.ShareMessageBuilder
 import com.dd3boh.xenowave.ui.component.button.IconButton
 import com.dd3boh.xenowave.ui.component.items.YouTubeListItem
 import com.dd3boh.xenowave.ui.dialog.AddToPlaylistDialog
@@ -249,12 +252,19 @@ fun YouTubePlaylistMenu(
             icon = com.dd3boh.xenowave.ui.icons.XenoActionIcons.Share,
             title = R.string.share
         ) {
-            val intent = Intent().apply {
-                action = Intent.ACTION_SEND
-                type = "text/plain"
-                putExtra(Intent.EXTRA_TEXT, playlist.shareLink)
-            }
-            context.startActivity(Intent.createChooser(intent, null))
+            ShareIntentFactory.shareText(
+                context = context,
+                chooserTitle = context.getString(R.string.share_playlist_chooser_title),
+                text = ShareMessageBuilder.onlinePlaylist(
+                    template = context.getString(R.string.share_playlist_message),
+                    visibilityHintTemplate = context.getString(R.string.share_playlist_visibility_hint),
+                    title = playlist.title,
+                    playlistUrl = playlist.shareLink,
+                    appName = context.getString(R.string.app_name),
+                    downloadUrl = OfficialAppLinkProvider.DOWNLOAD_URL,
+                ),
+                title = playlist.title,
+            )
             onDismiss()
         }
 

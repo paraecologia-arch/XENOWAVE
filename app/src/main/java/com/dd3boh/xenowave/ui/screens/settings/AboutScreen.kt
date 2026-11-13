@@ -40,10 +40,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.dd3boh.xenowave.BuildConfig
@@ -63,9 +65,14 @@ import com.dd3boh.xenowave.ui.component.ContributorType.CUSTOM
 import com.dd3boh.xenowave.ui.component.PreferenceEntry
 import com.dd3boh.xenowave.ui.component.SettingsClickToReveal
 import com.dd3boh.xenowave.ui.component.XenoBrandMark
+import com.dd3boh.xenowave.ui.component.XenoBrandWordmark
 import com.dd3boh.xenowave.ui.component.button.IconButton
 import com.dd3boh.xenowave.ui.component.button.IconLabelButton
+import com.dd3boh.xenowave.ui.icons.XenoActionIcons
 import com.dd3boh.xenowave.ui.utils.backToMain
+import com.dd3boh.xenowave.sharing.OfficialAppLinkProvider
+import com.dd3boh.xenowave.sharing.ShareIntentFactory
+import com.dd3boh.xenowave.sharing.ShareMessageBuilder
 import com.dd3boh.xenowave.utils.rememberPreference
 import com.dd3boh.xenowave.utils.scanners.FFmpegScanner
 import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.FfmpegLibrary
@@ -80,6 +87,7 @@ fun AboutScreen(
     scrollBehavior: TopAppBarScrollBehavior,
 ) {
     val uriHandler = LocalUriHandler.current
+    val context = LocalContext.current
 
     val showDebugInfo = BuildConfig.DEBUG || BuildConfig.BUILD_TYPE == "userdebug"
     var signalTapCount by remember { mutableIntStateOf(0) }
@@ -118,16 +126,10 @@ fun AboutScreen(
             },
         )
 
-        Row(
-            verticalAlignment = Alignment.Top,
-        ) {
-            Text(
-                text = "XENOWAVE",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
-            )
-        }
+        XenoBrandWordmark(
+            fontSize = MaterialTheme.typography.headlineMedium.fontSize,
+            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+        )
 
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -159,6 +161,26 @@ fun AboutScreen(
             }
         }
 
+        Text(
+            text = stringResource(R.string.xenowave_about_creator_line),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+        )
+
+        Text(
+            text = stringResource(R.string.orbitron_license_notice),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+        )
+
         Spacer(Modifier.height(4.dp))
 
         Row(
@@ -189,7 +211,42 @@ fun AboutScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 PreferenceEntry(
-                    title = { Text(stringResource(R.string.attribution_title)) },
+                    title = { Text(stringResource(R.string.update_settings_title)) },
+                    icon = {
+                        com.dd3boh.xenowave.ui.icons.XenoIcon(
+                            icon = com.dd3boh.xenowave.ui.icons.XenoSystemIcons.Autorenew,
+                            contentDescription = null
+                        )
+                    },
+                    description = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                    onClick = {
+                        navController.navigate("settings/updates")
+                    }
+                )
+                PreferenceEntry(
+                    title = { Text(stringResource(R.string.share_app_title)) },
+                    description = stringResource(R.string.share_app_description),
+                    icon = {
+                        com.dd3boh.xenowave.ui.icons.XenoIcon(
+                            icon = XenoActionIcons.Share,
+                            contentDescription = null,
+                        )
+                    },
+                    onClick = {
+                        ShareIntentFactory.shareText(
+                            context = context,
+                            chooserTitle = context.getString(R.string.share_chooser_title),
+                            text = ShareMessageBuilder.appInvite(
+                                template = context.getString(R.string.share_app_message),
+                                appName = context.getString(R.string.app_name),
+                                downloadUrl = OfficialAppLinkProvider.DOWNLOAD_URL,
+                            ),
+                            title = context.getString(R.string.share_app_title),
+                        )
+                    },
+                )
+                PreferenceEntry(
+                    title = { Text(stringResource(R.string.xenowave_credits_title)) },
                     onClick = {
                         navController.navigate("settings/about/attribution")
                     }

@@ -42,6 +42,7 @@ data class SectionListRenderer(
         val musicCarouselShelfRenderer: MusicCarouselShelfRenderer?,
         val musicShelfRenderer: MusicShelfRenderer?,
         val musicCardShelfRenderer: MusicCardShelfRenderer?,
+        val itemSectionRenderer: ItemSectionRenderer? = null,
         val musicPlaylistShelfRenderer: MusicPlaylistShelfRenderer?,
         val musicDescriptionShelfRenderer: MusicDescriptionShelfRenderer?,
         val musicResponsiveHeaderRenderer: MusicResponsiveHeaderRenderer?,

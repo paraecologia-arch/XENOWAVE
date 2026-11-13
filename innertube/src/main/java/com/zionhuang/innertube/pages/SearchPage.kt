@@ -1,16 +1,10 @@
 package com.zionhuang.innertube.pages
 
-import com.zionhuang.innertube.models.Album
-import com.zionhuang.innertube.models.AlbumItem
-import com.zionhuang.innertube.models.Artist
-import com.zionhuang.innertube.models.ArtistItem
 import com.zionhuang.innertube.models.MusicResponsiveListItemRenderer
-import com.zionhuang.innertube.models.PlaylistItem
-import com.zionhuang.innertube.models.SongItem
 import com.zionhuang.innertube.models.YTItem
-import com.zionhuang.innertube.models.oddElements
-import com.zionhuang.innertube.models.splitBySeparator
-import com.zionhuang.innertube.utils.parseTime
+import com.zionhuang.innertube.models.getContinuation
+import com.zionhuang.innertube.models.stableKey
+import com.zionhuang.innertube.models.response.SearchResponse
 
 data class SearchResult(
     val items: List<YTItem>,
@@ -18,96 +12,89 @@ data class SearchResult(
 )
 
 object SearchPage {
-    fun toYTItem(renderer: MusicResponsiveListItemRenderer): YTItem? {
-        val secondaryLine = renderer.flexColumns.getOrNull(1)
-            ?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.splitBySeparator()
-            ?: return null
-        return when {
-            renderer.isSong -> {
-                SongItem(
-                    id = renderer.playlistItemData?.videoId ?: return null,
-                    title = renderer.flexColumns.firstOrNull()
-                        ?.musicResponsiveListItemFlexColumnRenderer?.text?.runs
-                        ?.firstOrNull()?.text ?: return null,
-                    artists = secondaryLine.firstOrNull()?.oddElements()?.map {
-                        Artist(
-                            name = it.text,
-                            id = it.navigationEndpoint?.browseEndpoint?.browseId
-                        )
-                    } ?: return null,
-                    album = secondaryLine.getOrNull(1)?.firstOrNull()?.takeIf { it.navigationEndpoint?.browseEndpoint != null }?.let {
-                        Album(
-                            name = it.text,
-                            id = it.navigationEndpoint?.browseEndpoint?.browseId!!
-                        )
-                    },
-                    duration = secondaryLine.lastOrNull()?.firstOrNull()?.text?.parseTime(),
-                    thumbnail = renderer.thumbnail?.musicThumbnailRenderer?.getThumbnailUrl() ?: return null,
-                    explicit = renderer.badges?.find {
-                        it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE"
-                    } != null
-                )
+    fun toYTItem(renderer: MusicResponsiveListItemRenderer): YTItem? =
+        SearchSummaryPage.fromMusicResponsiveListItemRenderer(renderer)
+
+    /**
+     * Reads every music shelf in the response, not just the last one. The filtered
+     * search response currently uses musicShelfRenderer, but older/newer layouts may
+     * add more than one section.
+     */
+    fun fromResponse(response: SearchResponse): SearchResult {
+        val sections = response.contents?.tabbedSearchResultsRenderer?.tabs?.firstOrNull()
+            ?.tabRenderer?.content?.sectionListRenderer?.contents
+            ?: throw SearchResponseFormatException("search response has no section list")
+
+        var recognizedSections = 0
+        var itemCandidates = 0
+        var parsedItems = 0
+        var continuation: String? = null
+        val items = mutableListOf<YTItem>()
+
+        sections.forEach { section ->
+            section.musicShelfRenderer?.let { shelf ->
+                recognizedSections++
+                shelf.contents.orEmpty().forEach { content ->
+                    content.musicResponsiveListItemRenderer?.let { renderer ->
+                        itemCandidates++
+                        toYTItem(renderer)?.let {
+                            items += it
+                            parsedItems++
+                        }
+                    }
+                }
+                continuation = continuation ?: shelf.continuations?.getContinuation()
             }
-            renderer.isArtist -> {
-                ArtistItem(
-                    id = renderer.navigationEndpoint?.browseEndpoint?.browseId ?: return null,
-                    title = renderer.flexColumns.firstOrNull()?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.firstOrNull()?.text ?: return null,
-                    thumbnail = renderer.thumbnail?.musicThumbnailRenderer?.getThumbnailUrl() ?: return null,
-                    shuffleEndpoint = renderer.menu?.menuRenderer?.items
-                        ?.find { it.menuNavigationItemRenderer?.icon?.iconType == "MUSIC_SHUFFLE" }
-                        ?.menuNavigationItemRenderer?.navigationEndpoint?.watchPlaylistEndpoint ?: return null,
-                    radioEndpoint = renderer.menu.menuRenderer.items
-                        .find { it.menuNavigationItemRenderer?.icon?.iconType == "MIX" }
-                        ?.menuNavigationItemRenderer?.navigationEndpoint?.watchPlaylistEndpoint ?: return null
-                )
+
+            section.itemSectionRenderer?.let { itemSection ->
+                recognizedSections++
+                itemSection.contents.orEmpty().forEach { content ->
+                    content.musicResponsiveListItemRenderer?.let { renderer ->
+                        itemCandidates++
+                        toYTItem(renderer)?.let {
+                            items += it
+                            parsedItems++
+                        }
+                    }
+                }
             }
-            renderer.isAlbum -> {
-                AlbumItem(
-                    browseId = renderer.navigationEndpoint?.browseEndpoint?.browseId ?: return null,
-                    playlistId = renderer.overlay?.musicItemThumbnailOverlayRenderer?.content?.musicPlayButtonRenderer?.playNavigationEndpoint?.anyWatchEndpoint?.playlistId ?: return null,
-                    title = renderer.flexColumns.firstOrNull()
-                        ?.musicResponsiveListItemFlexColumnRenderer?.text?.runs
-                        ?.firstOrNull()?.text ?: return null,
-                    artists = secondaryLine.getOrNull(1)?.oddElements()?.map {
-                        Artist(
-                            name = it.text,
-                            id = it.navigationEndpoint?.browseEndpoint?.browseId
-                        )
-                    } ?: return null,
-                    year = secondaryLine.getOrNull(2)?.firstOrNull()?.text?.toIntOrNull(),
-                    thumbnail = renderer.thumbnail?.musicThumbnailRenderer?.getThumbnailUrl() ?: return null,
-                    explicit = renderer.badges?.find {
-                        it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE"
-                    } != null
-                )
-            }
-            renderer.isPlaylist -> {
-                PlaylistItem(
-                    id = renderer.navigationEndpoint?.browseEndpoint?.browseId?.removePrefix("VL") ?: return null,
-                    title = renderer.flexColumns.firstOrNull()
-                        ?.musicResponsiveListItemFlexColumnRenderer?.text?.runs
-                        ?.firstOrNull()?.text ?: return null,
-                    author = secondaryLine.firstOrNull()?.firstOrNull()?.let {
-                        Artist(
-                            name = it.text,
-                            id = it.navigationEndpoint?.browseEndpoint?.browseId
-                        )
-                    } ?: return null,
-                    songCountText = renderer.flexColumns.getOrNull(1)
-                        ?.musicResponsiveListItemFlexColumnRenderer?.text?.runs
-                        ?.lastOrNull()?.text ?: return null,
-                    thumbnail = renderer.thumbnail?.musicThumbnailRenderer?.getThumbnailUrl() ?: return null,
-                    playEndpoint = renderer.overlay?.musicItemThumbnailOverlayRenderer?.content
-                        ?.musicPlayButtonRenderer?.playNavigationEndpoint?.watchPlaylistEndpoint ?: return null,
-                    shuffleEndpoint = renderer.menu?.menuRenderer?.items
-                        ?.find { it.menuNavigationItemRenderer?.icon?.iconType == "MUSIC_SHUFFLE" }
-                        ?.menuNavigationItemRenderer?.navigationEndpoint?.watchPlaylistEndpoint ?: return null,
-                    radioEndpoint = renderer.menu.menuRenderer.items
-                        .find { it.menuNavigationItemRenderer?.icon?.iconType == "MIX" }
-                        ?.menuNavigationItemRenderer?.navigationEndpoint?.watchPlaylistEndpoint ?: return null
-                )
-            }
-            else -> null
         }
+
+        if (recognizedSections == 0 && sections.isNotEmpty()) {
+            throw SearchResponseFormatException(
+                "search response has ${sections.size} sections but none is recognized"
+            )
+        }
+        if (itemCandidates > 0 && parsedItems == 0) {
+            throw SearchResponseFormatException(
+                "search response has $itemCandidates items but none could be parsed"
+            )
+        }
+
+        return SearchResult(
+            items = items.distinctBy { it.stableKey },
+            continuation = continuation,
+        )
+    }
+
+    /**
+     * A continuation response without continuationContents is a format change, not a
+     * legitimate end of list. An empty musicShelfContinuation with no next cursor is
+     * the real end.
+     */
+    fun fromContinuationResponse(response: SearchResponse): SearchResult {
+        val continuationContents = response.continuationContents
+            ?: throw SearchResponseFormatException("continuation response has no continuationContents")
+        val shelf = continuationContents.musicShelfContinuation
+        val items = shelf.contents.mapNotNull { content ->
+            toYTItem(content.musicResponsiveListItemRenderer)
+        }
+        if (shelf.contents.isNotEmpty() && items.isEmpty()) {
+            throw SearchResponseFormatException("continuation items could not be parsed")
+        }
+        return SearchResult(
+            items = items.distinctBy { it.stableKey },
+            continuation = shelf.continuations?.getContinuation(),
+        )
     }
 }

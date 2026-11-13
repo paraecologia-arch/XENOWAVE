@@ -145,12 +145,13 @@ class PoTokenWebView private constructor(
      */
     @JavascriptInterface
     fun onRunBotguardResult(botguardResponse: String) {
-        Log.d(TAG, "botguardResponse: $botguardResponse")
+        if (BuildConfig.DEBUG) {
+            Log.d(TAG, "botguardResponse received")
+        }
         makeBotguardServiceRequest(
             "https://www.youtube.com/api/jnn/v1/GenerateIT",
             "[ \"$REQUEST_KEY\", \"$botguardResponse\" ]",
         ) { responseBody ->
-            Log.d(TAG, "GenerateIT response: $responseBody")
             val (integrityToken, expirationTimeInSeconds) = parseIntegrityTokenData(responseBody)
 
             // leave 10 minutes of margin just to be sure
@@ -204,7 +205,6 @@ class PoTokenWebView private constructor(
      */
     @JavascriptInterface
     fun onObtainPoTokenResult(identifier: String, poTokenU8: String) {
-        Log.d(TAG, "Generated poToken (before decoding): identifier=$identifier poTokenU8=$poTokenU8")
         val poToken = try {
             u8ToBase64(poTokenU8)
         } catch (t: Throwable) {
@@ -212,7 +212,9 @@ class PoTokenWebView private constructor(
             return
         }
 
-        Log.d(TAG, "Generated poToken: identifier=$identifier poToken=$poToken")
+        if (BuildConfig.DEBUG) {
+            Log.d(TAG, "Generated poToken for identifier=$identifier")
+        }
         popPoTokenContinuation(identifier)?.resume(poToken)
     }
 

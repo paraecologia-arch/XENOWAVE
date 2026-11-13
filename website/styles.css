@@ -1,0 +1,267 @@
+:root {
+  --space: #0B1020;
+  --surface: #141C30;
+  --surface-high: #1E293B;
+  --border: #334155;
+  --text: #E2E8F0;
+  --text-muted: #A8B3C7;
+  --blue: #2563EB;
+  --blue-hover: #1D4ED8;
+  --cyan: #00D4FF;
+  --focus: #7DD3FC;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--space);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--text);
+  background:
+    radial-gradient(circle at 50% -10%, rgba(37, 99, 235, 0.28), transparent 55%),
+    radial-gradient(circle at 90% 10%, rgba(0, 212, 255, 0.10), transparent 40%),
+    var(--space);
+  font-family: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
+  line-height: 1.55;
+}
+
+code,
+.brand__name {
+  font-family: Orbitron, "Segoe UI", system-ui, sans-serif;
+}
+
+.page {
+  width: min(100% - 2rem, 34rem);
+  margin: 0 auto;
+  padding: 2rem 0 2.5rem;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin-bottom: 2rem;
+}
+
+.brand__icon {
+  border-radius: 1rem;
+  box-shadow: 0 0 2rem rgba(0, 212, 255, 0.18);
+}
+
+.brand__name {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  color: var(--text);
+}
+
+.hero,
+.steps,
+.notice,
+.details {
+  border: 1px solid var(--border);
+  border-radius: 1.25rem;
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.72), rgba(20, 28, 48, 0.92));
+  box-shadow: 0 1.5rem 3rem rgba(0, 0, 0, 0.28);
+}
+
+.hero {
+  padding: 1.5rem 1.25rem 1.35rem;
+}
+
+h1,
+h2 {
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+h1 {
+  margin: 0 0 0.6rem;
+  font-size: clamp(1.65rem, 7vw, 2.15rem);
+  letter-spacing: -0.02em;
+}
+
+h2 {
+  margin: 0 0 0.6rem;
+  font-size: 1.05rem;
+}
+
+.hero__lead {
+  margin: 0 0 1.25rem;
+  color: var(--text-muted);
+}
+
+.status {
+  min-height: 1.55em;
+  margin: 0 0 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+}
+
+.status[data-state="error"] {
+  color: #FCA5A5;
+}
+
+.status[data-state="ready"] {
+  color: var(--cyan);
+}
+
+.retry {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--cyan);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+  cursor: pointer;
+}
+
+.button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 3.5rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid transparent;
+  border-radius: 0.9rem;
+  background: var(--blue);
+  color: #FFFFFF;
+  font: inherit;
+  font-size: 1.05rem;
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 120ms ease, transform 120ms ease;
+}
+
+.button:hover {
+  background: var(--blue-hover);
+}
+
+.button:active {
+  transform: translateY(1px);
+}
+
+.button[aria-disabled="true"] {
+  background: #1E3A8A;
+  color: #CBD5E1;
+  cursor: not-allowed;
+}
+
+.button:focus-visible,
+a:focus-visible,
+summary:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.release {
+  margin: 0.7rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+}
+
+.release strong {
+  color: var(--text);
+}
+
+.steps,
+.notice,
+.details {
+  margin-top: 1rem;
+  padding: 1.15rem 1.25rem;
+}
+
+.steps ol {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.steps li + li {
+  margin-top: 0.45rem;
+}
+
+.notice p,
+.details p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.details details {
+  margin-top: 0.85rem;
+}
+
+summary {
+  color: var(--cyan);
+  cursor: pointer;
+}
+
+dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.35rem 0.9rem;
+  margin: 0.8rem 0 0;
+  font-size: 0.88rem;
+}
+
+dt {
+  color: var(--text-muted);
+}
+
+dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.details__link {
+  margin-top: 1rem !important;
+}
+
+a {
+  color: var(--cyan);
+  text-underline-offset: 0.15em;
+}
+
+.footer {
+  margin-top: 1.5rem;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.footer p {
+  margin: 0;
+}
+
+@media (min-width: 30rem) {
+  .page {
+    padding-top: 3rem;
+  }
+
+  .hero {
+    padding: 1.9rem 1.75rem 1.7rem;
+  }
+
+  .steps,
+  .notice,
+  .details {
+    padding: 1.35rem 1.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto !important;
+    transition: none !important;
+  }
+}

@@ -448,6 +448,8 @@ fun HistoryScreen(
                         sel.forEach {
                             delete(it)
                         }
+                        com.dd3boh.xenowave.insights.musicalage.data.AppMusicalAgeHistoryGeneration
+                            .invalidate()
                     }
                 },
             )
