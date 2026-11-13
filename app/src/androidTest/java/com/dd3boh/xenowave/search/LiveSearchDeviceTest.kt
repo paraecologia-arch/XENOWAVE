@@ -28,13 +28,13 @@ class LiveSearchDeviceTest {
     @Test
     fun decadeQueryShowsResultsInAllSongsAndVideos() {
         compose.waitUntil(30_000) {
-            compose.onAllNodesWithText("Search", substring = true)
+            compose.onAllNodes(hasSetTextAction())
                 .fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNode(hasSetTextAction())
+        compose.onAllNodes(hasSetTextAction())[0]
             .performClick()
             .performTextInput("rock dos anos 70")
-        compose.onNode(hasSetTextAction()).performImeAction()
+        compose.onAllNodes(hasSetTextAction())[0].performImeAction()
 
         compose.waitUntil(60_000) {
             compose.onAllNodesWithText("Songs", substring = true)
