@@ -1,8 +1,8 @@
 package com.dd3boh.xenowave.search
 
 import androidx.compose.ui.test.assertCountEquals
-import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
@@ -28,13 +28,13 @@ class LiveSearchDeviceTest {
     @Test
     fun decadeQueryShowsResultsInAllSongsAndVideos() {
         compose.waitUntil(30_000) {
-            compose.onAllNodes(hasSetTextAction())
+            compose.onAllNodesWithContentDescription("Search")
                 .fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onAllNodes(hasSetTextAction())[0]
+        compose.onAllNodesWithContentDescription("Search")[0]
             .performClick()
             .performTextInput("rock dos anos 70")
-        compose.onAllNodes(hasSetTextAction())[0].performImeAction()
+        compose.onAllNodesWithContentDescription("Search")[0].performImeAction()
 
         compose.waitUntil(60_000) {
             compose.onAllNodesWithText("Songs", substring = true)
