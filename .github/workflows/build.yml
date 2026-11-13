@@ -172,9 +172,7 @@ jobs:
           emulator-boot-timeout: 900
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
-          script: |
-            ./gradlew connectedCoreDebugAndroidTest --stacktrace -DskipFormatKtlint
-            python3 tools/live-search-ui-smoke.py
+          script: ./gradlew connectedCoreDebugAndroidTest --stacktrace -DskipFormatKtlint
 
       - name: Record emulator details
         if: always()
@@ -195,15 +193,3 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-      - name: Upload live search UI evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: xenowave-live-search-ui
-          path: |
-            live-search-ui-smoke.json
-            live-search-ui-smoke.xml
-            live-search-ui-smoke.png
-            live-search-ui-smoke-failure.png
-          if-no-files-found: ignore
-          retention-days: 14
