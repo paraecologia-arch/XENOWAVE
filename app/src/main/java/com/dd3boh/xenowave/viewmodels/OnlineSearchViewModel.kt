@@ -19,9 +19,13 @@ import com.zionhuang.innertube.pages.SearchResult
 import com.zionhuang.innertube.pages.SearchSummary
 import com.zionhuang.innertube.pages.SearchSummaryPage
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -69,29 +73,28 @@ class OnlineSearchViewModel @Inject constructor(
     private var summaryRequestId = 0
     private var generationCounter = 0L
     private var loadMoreJob: Job? = null
+    private val reloadRequests = MutableSharedFlow<YouTube.SearchFilter?>(
+        extraBufferCapacity = 1,
+    )
 
     init {
         viewModelScope.launch {
-            filter.collectLatest { currentFilter ->
+            merge(
+                filter.map { SearchLoadRequest(it, force = false) },
+                reloadRequests.map { SearchLoadRequest(it, force = true) },
+            ).collectLatest { request ->
                 loadMoreJob?.cancel()
-                if (currentFilter == null) {
-                    loadSummary()
+                if (request.filter == null) {
+                    loadSummary(force = request.force)
                 } else {
-                    loadFilter(currentFilter)
+                    loadFilter(request.filter, force = request.force)
                 }
             }
         }
     }
 
     fun retry() {
-        viewModelScope.launch {
-            val currentFilter = filter.value
-            if (currentFilter == null) {
-                loadSummary(force = true)
-            } else {
-                loadFilter(currentFilter, force = true)
-            }
-        }
+        reloadRequests.tryEmit(filter.value)
     }
 
     /** Retries the next page with the same cursor, keeping the items already shown. */
@@ -190,40 +193,59 @@ class OnlineSearchViewModel @Inject constructor(
             generation = generation,
         )
 
-        val attempt = fallbackLoader.load(
-            query = query,
-            variants = queryVariants,
-            request = { candidate -> searchSource.search(candidate, currentFilter) },
-            isSparse = { it.items.size < 2 },
-        )
-        if (filterStates[key]?.generation != generation) return
+        try {
+            val attempt = fallbackLoader.load(
+                query = query,
+                variants = queryVariants,
+                request = { candidate -> searchSource.search(candidate, currentFilter) },
+                isSparse = { it.items.size < 2 },
+            )
+            if (filterStates[key]?.generation != generation) return
 
-        val original = attempt.original
-        if (original == null) {
+            val original = attempt.original
+            if (original == null) {
+                filterStates[key] = OnlineSearchPageState(
+                    items = previousItems,
+                    continuation = previousContinuation,
+                    isLoading = false,
+                    error = if (previousItems.isEmpty()) {
+                        attempt.error ?: SearchResponseFormatException("filtered search failed")
+                    } else {
+                        null
+                    },
+                    generation = generation,
+                )
+                return
+            }
+
+            val variant = attempt.variant
+            val page = if (variant == null) original else mergeItems(original, variant)
+            val addedByVariant = variant != null &&
+                page.items.size > original.items.distinctBy { it.stableKey }.size
             filterStates[key] = OnlineSearchPageState(
-                items = previousItems,
-                continuation = previousContinuation,
-                isLoading = false,
-                error = if (previousItems.isEmpty()) {
-                    attempt.error ?: SearchResponseFormatException("filtered search failed")
-                } else {
-                    null
-                },
+                items = page.items,
+                continuation = page.continuation,
+                related = addedByVariant,
                 generation = generation,
             )
-            return
+        } catch (error: CancellationException) {
+            // Only the request that installed this generation may roll it back. A
+            // cancelled first page is not an empty result and must be reloadable.
+            if (filterStates[key]?.generation == generation) {
+                if (existing == null) {
+                    filterStates.remove(key)
+                } else {
+                    // Move preserved data to the new generation so a late page from
+                    // the old owner cannot mutate the restored cache.
+                    filterStates[key] = existing.copy(
+                        isLoading = false,
+                        isLoadingMore = false,
+                        generation = generation,
+                    )
+                }
+            }
+            throw error
         }
-
-        val variant = attempt.variant
-        val page = if (variant == null) original else mergeItems(original, variant)
-        val addedByVariant = variant != null &&
-            page.items.size > original.items.distinctBy { it.stableKey }.size
-        filterStates[key] = OnlineSearchPageState(
-            items = page.items,
-            continuation = page.continuation,
-            related = addedByVariant,
-            generation = generation,
-        )
     }
 
     private suspend fun loadNextPage(
@@ -303,3 +325,8 @@ class OnlineSearchViewModel @Inject constructor(
         )
     }
 }
+
+private data class SearchLoadRequest(
+    val filter: YouTube.SearchFilter?,
+    val force: Boolean,
+)

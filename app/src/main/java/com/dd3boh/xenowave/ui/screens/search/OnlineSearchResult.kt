@@ -62,6 +62,7 @@ import com.dd3boh.xenowave.ui.menu.YouTubePlaylistMenu
 import com.dd3boh.xenowave.ui.menu.YouTubeSongMenu
 import com.dd3boh.xenowave.utils.rememberPreference
 import com.dd3boh.xenowave.viewmodels.OnlineSearchViewModel
+import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.YouTube.SearchFilter.Companion.FILTER_ALBUM
 import com.zionhuang.innertube.YouTube.SearchFilter.Companion.FILTER_ARTIST
 import com.zionhuang.innertube.YouTube.SearchFilter.Companion.FILTER_COMMUNITY_PLAYLIST
@@ -353,16 +354,7 @@ fun OnlineSearchResult(
         )
     }
 
-    ChipsRow(
-        chips = listOf(
-            null to stringResource(R.string.filter_all),
-            FILTER_SONG to stringResource(R.string.filter_songs),
-            FILTER_VIDEO to stringResource(R.string.filter_videos),
-            FILTER_ALBUM to stringResource(R.string.filter_albums),
-            FILTER_ARTIST to stringResource(R.string.filter_artists),
-            FILTER_COMMUNITY_PLAYLIST to stringResource(R.string.filter_community_playlists),
-            FILTER_FEATURED_PLAYLIST to stringResource(R.string.filter_featured_playlists)
-        ),
+    OnlineSearchFilterChips(
         currentValue = searchFilter,
         onValueUpdate = {
             if (viewModel.filter.value != it) {
@@ -375,6 +367,29 @@ fun OnlineSearchResult(
         modifier = Modifier
             .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top).add(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Horizontal)))
             .padding(top = AppBarHeight)
+    )
+}
+
+/** Production filter row, also hosted by the deterministic debug integration test. */
+@Composable
+internal fun OnlineSearchFilterChips(
+    currentValue: YouTube.SearchFilter?,
+    onValueUpdate: (YouTube.SearchFilter?) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    ChipsRow(
+        chips = listOf(
+            null to stringResource(R.string.filter_all),
+            FILTER_SONG to stringResource(R.string.filter_songs),
+            FILTER_VIDEO to stringResource(R.string.filter_videos),
+            FILTER_ALBUM to stringResource(R.string.filter_albums),
+            FILTER_ARTIST to stringResource(R.string.filter_artists),
+            FILTER_COMMUNITY_PLAYLIST to stringResource(R.string.filter_community_playlists),
+            FILTER_FEATURED_PLAYLIST to stringResource(R.string.filter_featured_playlists)
+        ),
+        currentValue = currentValue,
+        onValueUpdate = onValueUpdate,
+        modifier = modifier,
     )
 }
 

@@ -29,5 +29,11 @@
             android:exported="false"
             android:label="DEBUG — XENOWAVE pesquisa"
             android:theme="@style/Theme.XenoWave" />
+        <!-- Debug-only real ViewModel + production filter chips integration host. -->
+        <activity
+            android:name="com.dd3boh.xenowave.debug.DebugSearchFilterHostActivity"
+            android:exported="false"
+            android:label="DEBUG — XENOWAVE filtros"
+            android:theme="@style/Theme.XenoWave" />
     </application>
 </manifest>

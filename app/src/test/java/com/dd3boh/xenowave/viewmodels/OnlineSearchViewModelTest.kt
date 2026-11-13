@@ -179,6 +179,172 @@ class OnlineSearchViewModelTest {
         assertNull(recovered.loadMoreError)
     }
 
+    @Test
+    fun `switching away from a blocked first page and back starts a fresh request`() {
+        val firstSongRequestStarted = CompletableDeferred<Unit>()
+        val neverCompletes = CompletableDeferred<Result<SearchResult>>()
+        var songRequests = 0
+        var cancellations = 0
+        val source = FakeSearchSource().apply {
+            filterHandler = { _, filter ->
+                when (filter) {
+                    YouTube.SearchFilter.FILTER_SONG -> {
+                        songRequests++
+                        if (songRequests == 1) {
+                            firstSongRequestStarted.complete(Unit)
+                            try {
+                                neverCompletes.await()
+                            } finally {
+                                cancellations++
+                            }
+                        } else {
+                            Result.success(
+                                SearchResult(listOf(song("song-1"), song("song-2")))
+                            )
+                        }
+                    }
+
+                    else -> Result.success(
+                        SearchResult(listOf(song("video-1"), song("video-2")))
+                    )
+                }
+            }
+        }
+        val viewModel = OnlineSearchViewModel(
+            savedStateHandle = SavedStateHandle(mapOf("query" to "rock")),
+            searchSource = source,
+        )
+        drainMainLooper()
+
+        viewModel.filter.value = YouTube.SearchFilter.FILTER_SONG
+        drainMainLooper()
+        assertTrue(firstSongRequestStarted.isCompleted)
+
+        viewModel.filter.value = YouTube.SearchFilter.FILTER_VIDEO
+        drainMainLooper()
+        viewModel.filter.value = YouTube.SearchFilter.FILTER_SONG
+        drainMainLooper()
+
+        val recovered = viewModel.filterStates.getValue(YouTube.SearchFilter.FILTER_SONG.value)
+        assertEquals(1, cancellations)
+        assertEquals(2, songRequests)
+        assertEquals(listOf("song-1", "song-2"), recovered.items.map { it.id })
+        assertTrue(!recovered.isLoading)
+        assertNull(recovered.error)
+    }
+
+    @Test
+    fun `cancelling a refresh preserves previously loaded data`() {
+        val refreshStarted = CompletableDeferred<Unit>()
+        val neverCompletes = CompletableDeferred<Result<SearchResult>>()
+        var songRequests = 0
+        var cancellations = 0
+        val source = FakeSearchSource().apply {
+            filterHandler = { _, filter ->
+                when (filter) {
+                    YouTube.SearchFilter.FILTER_SONG -> {
+                        songRequests++
+                        if (songRequests == 1) {
+                            Result.success(
+                                SearchResult(listOf(song("kept-1"), song("kept-2")), "kept-cursor")
+                            )
+                        } else {
+                            refreshStarted.complete(Unit)
+                            try {
+                                neverCompletes.await()
+                            } finally {
+                                cancellations++
+                            }
+                        }
+                    }
+
+                    else -> Result.success(
+                        SearchResult(listOf(song("video-1"), song("video-2")))
+                    )
+                }
+            }
+        }
+        val viewModel = OnlineSearchViewModel(
+            savedStateHandle = SavedStateHandle(mapOf("query" to "rock")),
+            searchSource = source,
+        )
+        drainMainLooper()
+        viewModel.filter.value = YouTube.SearchFilter.FILTER_SONG
+        drainMainLooper()
+
+        viewModel.retry()
+        drainMainLooper()
+        assertTrue(refreshStarted.isCompleted)
+        viewModel.filter.value = YouTube.SearchFilter.FILTER_VIDEO
+        drainMainLooper()
+
+        val preserved = viewModel.filterStates.getValue(YouTube.SearchFilter.FILTER_SONG.value)
+        assertEquals(1, cancellations)
+        assertEquals(listOf("kept-1", "kept-2"), preserved.items.map { it.id })
+        assertEquals("kept-cursor", preserved.continuation)
+        assertTrue(!preserved.isLoading)
+        assertNull(preserved.error)
+
+        viewModel.filter.value = YouTube.SearchFilter.FILTER_SONG
+        drainMainLooper()
+        assertEquals(2, songRequests)
+    }
+
+    @Test
+    fun `two rapid filter cancellations leave the latest generation useful`() {
+        val firstSongStarted = CompletableDeferred<Unit>()
+        val firstVideoStarted = CompletableDeferred<Unit>()
+        val neverCompletes = CompletableDeferred<Result<SearchResult>>()
+        var songRequests = 0
+        var videoRequests = 0
+        var cancellations = 0
+        val source = FakeSearchSource().apply {
+            filterHandler = { _, filter ->
+                if (filter == YouTube.SearchFilter.FILTER_SONG) {
+                    songRequests++
+                    if (songRequests == 1) {
+                        firstSongStarted.complete(Unit)
+                        try {
+                            neverCompletes.await()
+                        } finally {
+                            cancellations++
+                        }
+                    } else {
+                        Result.success(SearchResult(listOf(song("latest-1"), song("latest-2"))))
+                    }
+                } else {
+                    videoRequests++
+                    firstVideoStarted.complete(Unit)
+                    try {
+                        neverCompletes.await()
+                    } finally {
+                        cancellations++
+                    }
+                }
+            }
+        }
+        val viewModel = OnlineSearchViewModel(
+            savedStateHandle = SavedStateHandle(mapOf("query" to "rock")),
+            searchSource = source,
+        )
+        drainMainLooper()
+        viewModel.filter.value = YouTube.SearchFilter.FILTER_SONG
+        drainMainLooper()
+        assertTrue(firstSongStarted.isCompleted)
+        viewModel.filter.value = YouTube.SearchFilter.FILTER_VIDEO
+        drainMainLooper()
+        assertTrue(firstVideoStarted.isCompleted)
+        viewModel.filter.value = YouTube.SearchFilter.FILTER_SONG
+        drainMainLooper()
+
+        val latest = viewModel.filterStates.getValue(YouTube.SearchFilter.FILTER_SONG.value)
+        assertEquals(2, cancellations)
+        assertEquals(2, songRequests)
+        assertEquals(1, videoRequests)
+        assertEquals(listOf("latest-1", "latest-2"), latest.items.map { it.id })
+        assertTrue(!latest.isLoading)
+    }
+
     private fun drainMainLooper() {
         repeat(5) { shadowOf(Looper.getMainLooper()).idle() }
     }
@@ -200,6 +366,7 @@ private class FakeSearchSource : OnlineSearchSource {
         SearchSummaryPage(listOf(SearchSummary("", listOf())))
     )
     var filterResult: Result<SearchResult> = Result.success(SearchResult(emptyList()))
+    var filterHandler: (suspend (String, YouTube.SearchFilter) -> Result<SearchResult>)? = null
     val continuationResults = ArrayDeque<Result<SearchResult>>()
     var continuationHandler: (suspend () -> Result<SearchResult>)? = null
 
@@ -213,6 +380,7 @@ private class FakeSearchSource : OnlineSearchSource {
         filter: YouTube.SearchFilter,
     ): Result<SearchResult> {
         filterRequests += query to filter.value
+        filterHandler?.let { return it(query, filter) }
         return filterResult
     }
 
